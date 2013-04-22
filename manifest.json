@@ -1,16 +1,22 @@
 {
-  "name": "Nerdery Timesheet Helper",
-  "version": "1.2",
   "manifest_version": 2,
+  "name": "Nerdery Timesheet Helper",
   "description": "Helps you use the nerdery timesheet more quickly using keyboard shortcuts",
+  "homepage_url": "https://github.com/bitwalker/NerderyTimesheetHelper",
+  "version": "1.2",
   "icons": {
     "128": "icon.png"
   },
+  "options_page": "options.html",
   "content_scripts": [
     {
       "matches": ["https://mainframe.nerdery.com/timesheet.php*"],
       "js": [
-        "contentscript.js"
+        "lib/underscore.min.js",
+        "lib/jquery.min.js",
+        "lib/Date.js",
+        "keybindings.js",
+        "content.js"
       ]
     }
   ],
@@ -19,11 +25,6 @@
       "https://mainframe.nerdery.com/timesheet.php?",
       "https://mainframe.nerdery.com/timesheet.php*",
       "https://mainframe.nerdery.com/timesheet.php?*"
-  ],
-  "web_accessible_resources": [
-      "jquery-1.9.1.min.js",
-      "Date.js",
-      "NerderyTimesheetHelper.js"
   ],
   "update_url": "https://github.com/bitwalker/NerderyTimesheetHelper/raw/master/updates.xml"
 }
