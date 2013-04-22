@@ -6,10 +6,6 @@
   "icons": {
     "128": "icon.png"
   },
-  "browser_action": {
-    "default_icon": "icon.png",
-    "default_popup": "popup.html"
-  },
   "content_scripts": [
     {
       "matches": ["https://mainframe.nerdery.com/timesheet.php*"],
