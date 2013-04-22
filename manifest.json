@@ -1,0 +1,33 @@
+{
+  "name": "Nerdery Timesheet Helper",
+  "version": "1.1",
+  "manifest_version": 2,
+  "description": "Helps you use the nerdery timesheet more quickly using keyboard shortcuts",
+  "icons": {
+    "128": "icon.png"
+  },
+  "browser_action": {
+    "default_icon": "icon.png",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://mainframe.nerdery.com/timesheet.php*"],
+      "js": [
+        "contentscript.js"
+      ]
+    }
+  ],
+  "permissions": [
+      "https://mainframe.nerdery.com/timesheet.php",
+      "https://mainframe.nerdery.com/timesheet.php?",
+      "https://mainframe.nerdery.com/timesheet.php*",
+      "https://mainframe.nerdery.com/timesheet.php?*"
+  ],
+  "web_accessible_resources": [
+      "jquery-1.9.1.min.js",
+      "Date.js",
+      "NerderyTimesheetHelper2.js"
+  ],
+  "update_url": "http://athens.sierrabravo.net/~rdempsey/Downloads/NTHupdates/updates.xml"
+}
