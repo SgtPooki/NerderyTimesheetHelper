@@ -116,28 +116,63 @@ var KEYS = {
     getCodeFor: function(key) {
         return this[key];
     },
-    /* Determine if the provided combo was pressed
-     * Combo: {
-        shift:   boolean,
-        alt:     boolean,
-        meta:    boolean,
-        ctrl:    boolean,
-        keyCode: e.which || keycode
-       };
+    /* Determine if the provided key was pressed
+     * key: The expected key (can be either a keycode or the letter)
+     * which: The keyCode (from e.which) of the currently pressed key
      */
-    wasComboPressed: function (e, combo) {
+    isKeyPressed: function(key, which) {
+        var self = this;
+        if (typeof key === 'string') {
+            return which === this.getCodeFor(key);
+        } else if (typeof key === 'number') {
+            return which === key;
+        } else if (key && key.constructor.name === 'Array') {
+            // Map each key to it's keyCode, and check for the presence of `which`
+            return key.map(function(k) {
+                if (typeof k === 'string') return self.getCodeFor(k);
+                else return k;
+            }).indexOf(which) > -1;
+        } else {
+            // Not a number or string? Not a valid keycode
+            return false;
+        }
+    },
+    // Determine if the provided combo was pressed
+    isComboPressed: function (e, combo) {
         if (!e || !combo) return false;
 
-        // If we have a match, return true
-        if (combo.shift   === e.shiftKey &&
-            combo.alt     === e.altKey   &&
-            combo.meta    === e.metaKey  &&
-            combo.ctrl    === e.ctrlKey  && 
-            combo.keyCode === e.which
-        ) return true;
+        // If the key itself is the same, we just have to ensure the expected meta key is pressed
+        if (combo.keyCode === e.which) {
+            // Check each meta key in the combo to confirm it's pressed
+            if (combo.shift) {
+                if (!e.shiftKey) return false;
+            }
+            if (combo.alt) {
+                if (!e.altKey) return false;
+            }
+            if (combo.meta) {
+                if (!e.metaKey) return false;
+            }
+            if (combo.ctrl) {
+                if (!e.ctrlKey) return false;
+            }
+        }
 
         // Otherwise...
         return false;
+    },
+    // Return true if all of a combo's meta keys are depressed
+    isComboMeta: function(currentCombo, combo) {
+        var pressed = true;
+        if (combo.ctrl && !currentCombo.ctrl)
+            pressed = false;
+        if (combo.shift && !currentCombo.shift)
+            pressed = false;
+        if (combo.alt && !currentCombo.alt)
+            pressed = false;
+        if (combo.meta && !currentCombo.meta)
+            pressed = false;
+        return pressed;
     },
     // Return an empty combo object
     getEmptyCombo: function() {
@@ -146,7 +181,7 @@ var KEYS = {
             alt:     false,
             meta:    false,
             ctrl:    false,
-            keyCode: 0
+            keyCode: 0,
         };
     },
     // Given a keypress event, get the keycombo it contains
@@ -192,4 +227,13 @@ var KEYS = {
         combo.meta    = parts.indexOf('META') > -1;
         return combo;
     }
+};
+
+var BINDINGS = {
+    'inc_start_time': KEYS.newCombo('Up',   ['shift']),
+    'dec_start_time': KEYS.newCombo('Down', ['shift']),
+    'inc_end_time':   KEYS.newCombo('Up',   ['ctrl']),
+    'dec_end_time':   KEYS.newCombo('Down', ['ctrl']),
+    'inc_row':        KEYS.newCombo('Up',   ['alt']),
+    'dec_row':        KEYS.newCombo('Down', ['alt'])
 };
