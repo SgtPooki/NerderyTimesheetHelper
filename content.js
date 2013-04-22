@@ -1,153 +1,136 @@
-var NRD = NRD || {};
+(function ($) {
+    var NRD = {};
 
-(function () {
     NRD.TimesheetHelper = {
         center: function() {
             this.setDomItems();
             window.scrollTo(0, this.currentDomItems.$notes.offset().top - ($(window).height()/2));
         },
-        _config: {
-            keys: {
-                ENTER: 13,
-                SHIFT: 16,
-                CTRL: 17,
-                ALT: 18,
-                ESC: 27,
-                ARROW_LEFT: 37,
-                ARROW_UP: 38,
-                ARROW_RIGHT: 39,
-                ARROW_DOWN: 40,
-                DEL: 46
-            },
-            defaults: {
-
-            },
-            keyMappings: {
-
-            },
-            selectors: {
-                notes: '[name="notes"]',
-                startTime: '[name="start_time"]',
-                endTime: '[name="end_time"]'
-            }
+        selectors: {
+            entryForm:  '#TSEntryForm',
+            notes:      '[name="notes"]',
+            startTime:  '[name="start_time"]',
+            endTime:    '[name="end_time"]'
         },
         setDomItems: function () {
-            $notes = jQuery(this._config.selectors.notes);
-            $notes = ($notes.length > 1) ? $notes.eq(1) : $notes.eq(0);
-            $startTime = jQuery(this._config.selectors.startTime);
-            $startTime = ($startTime.length > 1) ? $startTime.eq(1) : $startTime.eq(0);
-            $endTime = jQuery(this._config.selectors.endTime);
-            $endTime = ($endTime.length > 1) ? $endTime.eq(1) : $endTime.eq(0);
-            this.currentDomItems = {'$notes': $notes, 'notes': $notes[0],
-                '$startTime': $startTime, 'startTime': $startTime[0],
-                '$endTime': $endTime, 'endTime': $endTime[0]};
+            $notes      = $(this.selectors.notes);
+            $notes      = $notes.length > 1 ? $notes.eq(1) : $notes.eq(0);
+            $startTime  = $(this.selectors.startTime);
+            $startTime  = $startTime.length > 1 ? $startTime.eq(1) : $startTime.eq(0);
+            $endTime    = $(this.selectors.endTime);
+            $endTime    = $endTime.length > 1 ? $endTime.eq(1) : $endTime.eq(0);
+            this.currentDomItems = {
+                '$notes':       $notes,     'notes':     $notes[0],
+                '$startTime':   $startTime, 'startTime': $startTime[0],
+                '$endTime':     $endTime,   'endTime':   $endTime[0]
+            };
             return this.currentDomItems;
         },
         _appState: {
             editingEntries: false
         },
-        _keyState: {
-            SHIFTdown: false,
-            CTRLdown: false,
-            ALTdown: false
-        },
+
         init: function () {
+            this._loadBindings();
             this._bind();
         },
+
+        _loadBindings: function() {
+            // Restores bindings from localStorage
+            _.each(BINDINGS, function(combo, name) {
+                var comboString = localStorage[name];
+                if (comboString) {
+                    BINDINGS[name] = KEYS.comboFromString(comboString);
+                }
+            });
+        },
+
         _bind: function () {
             var self = this;
-            jQuery(this._config.selectors.notes).live('keydown',function (e) {
-                var key = self.keyMappings.getKey(e);
+            $(this.selectors.notes).on('keydown', function (e) {
+                var combo = KEYS.getComboForEvent(e);
+                // Set DOM
                 self.setDomItems();
-                switch (key) {
-                    case self._config.keys.CTRL:
-                        self._keyState.CTRLdown = true;
-                        self.currentDomItems.$endTime.css('background', 'yellow');
-                        break;
-                    case self._config.keys.SHIFT:
-                        self._keyState.SHIFTdown = true;
-                        self.currentDomItems.$startTime.css('background', 'yellow');
-                        break;
-                    case self._config.keys.ALT:
-                        self._keyState.ALTdown = true;
-                        break;
-                    default:
+                // Hilight start/end fields if their associated key combinations are meta
+                if (KEYS.isComboMeta(combo, BINDINGS.inc_start_time) || KEYS.isComboMeta(combo, BINDINGS.dec_start_time)) {
+                    self.currentDomItems.$startTime.css('background', 'yellow');
                 }
-                    if (key == self._config.keys.ENTER && !self._keyState.CTRLdown && !self.EntryEditor.active) {
-                        e.preventDefault();
+                if (KEYS.isComboMeta(combo, BINDINGS.inc_end_time) || KEYS.isComboMeta(combo, BINDINGS.dec_end_time)) {
+                    self.currentDomItems.$endTime.css('background', 'yellow');
+                }
 
-                        //jQuery('#save_ts_entry_button').trigger('click');
-                        jQuery('#TSEntryForm').submit();
-
+                // If ENTER is pressed by itself when the editor is not active, submit the time entry
+                if (KEYS.isKeyPressed(KEYS.Enter, combo.keyCode) && (!combo.ctrl || !combo.meta || !combo.shift) && !self.EntryEditor.active) {
+                    e.preventDefault();
+                    // Submit entry form
+                    $(self.selectors.entryForm).submit();
+                    // Exit early
+                    return false;
+                } 
+                else {
+                    // Check for time modifications
+                    var timeUpdated = false;
+                    if (KEYS.isComboPressed(e, BINDINGS.inc_start_time)) {
+                        timeUpdated = true;
+                        self.TimeManipulator.increase(self.currentDomItems.$startTime);
+                    }
+                    if (KEYS.isComboPressed(e, BINDINGS.inc_end_time)) {
+                        timeUpdated = true;
+                        self.TimeManipulator.increase(self.currentDomItems.$endTime);
+                    }
+                    if (KEYS.isComboPressed(e, BINDINGS.dec_start_time)) {
+                        timeUpdated = true;
+                        self.TimeManipulator.increase(self.currentDomItems.$startTime);
+                    }
+                    if (KEYS.isComboPressed(e, BINDINGS.dec_end_time)) {
+                        timeUpdated = true;
+                        self.TimeManipulator.increase(self.currentDomItems.$endTime);
+                    }
+                    // If the time was updated, trigger updateRemainingTime and exit
+                    if (timeUpdated) {
+                        updateRemainingTime(); // Mainframe function.
                         return false;
+                    }
 
-                    } else if (self._keyState.CTRLdown && self._keyState.SHIFTdown && (key == self._config.keys.ARROW_UP || key == self._config.keys.ARROW_DOWN)) {
-                        if (key == self._config.keys.ARROW_UP) {
-                            self.TimeManipulator.increase(self.currentDomItems.$startTime);
-                            self.TimeManipulator.increase(self.currentDomItems.$endTime);
-                        } else {
-                            self.TimeManipulator.decrease(self.currentDomItems.$startTime);
-                            self.TimeManipulator.decrease(self.currentDomItems.$endTime);
-                        }
-                        updateRemainingTime(); //mainframe function.
-                        return false;
-
-                    } else if (self._keyState.CTRLdown && (key == self._config.keys.ARROW_UP || key == self._config.keys.ARROW_DOWN)) {
-                        if (key == self._config.keys.ARROW_UP) {
-                            self.TimeManipulator.increase(self.currentDomItems.$endTime);
-                        } else {
-                            self.TimeManipulator.decrease(self.currentDomItems.$endTime);
-                        }
-                        updateRemainingTime();
-                        return false;
-
-                    } else if (self._keyState.SHIFTdown && (key == self._config.keys.ARROW_UP || key == self._config.keys.ARROW_DOWN)) {
-                        if (key == self._config.keys.ARROW_UP) {
-                            self.TimeManipulator.increase(self.currentDomItems.$startTime);
-                        } else {
-                            self.TimeManipulator.decrease(self.currentDomItems.$startTime);
-                        }
-                        updateRemainingTime();
-                        return false;
-
-                    } else if (self._keyState.ALTdown && (key == self._config.keys.ARROW_DOWN || key == self._config.keys.ARROW_UP)) {
-
-                        if (key == self._config.keys.ARROW_DOWN) {
-                            self.EntryEditor.increaseRow();
-                        } else {
-                            self.EntryEditor.decreaseRow();
-                        }
-
+                    // Then check for navigation
+                    var changedRow = false;
+                    if (KEYS.isComboPressed(e, BINDINGS.inc_row)) {
+                        changedRow = true;
+                        self.EntryEditor.increaseRow();
+                    }
+                    if (KEYS.isComboPressed(e, BINDINGS.dec_row)) {
+                        changedRow = true;
+                        self.EntryEditor.decreaseRow();
+                    }
+                    if (changedRow) {
                         self.center();
                         self.currentDomItems.$notes.focus().select();
+                    }
 
-                    } else if (self.EntryEditor.active &&
-                            (key == self._config.keys.ENTER ||
-                            key == self._config.keys.ESC ||
-                            key == self._config.keys.DEL)) {
+                    // Lastly, look for editor commands
+                    if (KEYS.isKeyPressed(['Enter', 'Esc', 'Delete'], combo.keyCode)) {
                         e.preventDefault();
-                        console.log('Entry editor is active');
-                        //self.EntryEditor.setRow(jQuery('.entry_row').eq(self.EntryEditor.entryIndex));
+                        console.log('Entry editor is active.');
 
-                        if (key == self._config.keys.ENTER) {
-                            //save the text.
+                        if (KEYS.isKeyPressed(KEYS.Enter, combo.keyCode)) {
+                            // Save text
                             console.log('ENTER was hit and ENTRY editor is active');
-                            //self.EntryEditor.saveRowIfChanged();
-                        } else if (key == self._config.keys.ESC) {
-                            //Go back to entering a new entry
+                            // self.EntryEditor.saveRowIfChanged();
+                        } else if (KEYS.isKeyPressed(KEYS.Esc, combo.keyCode)) {
+                            // Go back to entering a new entry
                             self.EntryEditor.reset();
-
                             self.center();
                             self.currentDomItems.$notes.focus();
-
-                        } else if (key == self._config.keys.DEL && self._keyState.ALTdown) {
-                            //delete the currently highlighted entry. (trigger click on delete button);
+                        } else if (KEYS.isKeyPressed(KEYS.Delete, combo.keyCode) && combo.alt) {
+                            // Delete the currently highlighted entry. (trigger click on delete button);
                             self.EntryEditor.unhighlightRow();
+
                             var $deleteButton = self.EntryEditor.$currentRow.find('.delete_entry');
                             var paramArray = $deleteButton.attr('href').split('(').splice(1)[0].replace(')', '').replace(', ', ',').replace(/'/gm, '').split(',');
-                            var week = paramArray[0];
-                            var row = paramArray[1];
-                            var url = url = '/timesheet.php?&week_ending=' + week + '&delete=' + row;
+                            var week       = paramArray[0];
+                            var row        = paramArray[1];
+                            var url        = url = '/timesheet.php?&week_ending=' + week + '&delete=' + row;
+
                             self.EntryEditor.$currentRow.remove();
                             self.EntryEditor.highlightRow();
 
@@ -155,57 +138,49 @@ var NRD = NRD || {};
                                 type: "GET",
                                 url: url,
                                 success: function (data) {
-                                    var $data = jQuery(data);
+                                    var $data = $(data);
                                     var $successfullyDeletedRow = jQuery('<div />').text('Entry deleted!').addClass('success');
                                     self.ui.displayMessage($successfullyDeletedRow);
-
                                     self.EntryEditor.replaceEntryHTML($data);
                                 }
                             });
                         }
                     }
+                }
+            }).on('keyup', function (e) {
+                var combo = KEYS.getComboForEvent(e);
+                // Remove hilight from start/end fields when meta is removed
+                if (KEYS.isComboMeta(combo, BINDINGS.inc_start_time) || KEYS.isComboMeta(combo, BINDINGS.dec_start_time)) {
+                    self.currentDomItems.$startTime.css('background', '');
+                }
+                if (KEYS.isComboMeta(combo, BINDINGS.inc_end_time) || KEYS.isComboMeta(combo, BINDINGS.dec_end_time)) {
+                    self.currentDomItems.$endTime.css('background', '');
+                }
+            });
 
-            }).live('keyup', function (e) {
-                    var key = NRD.TimesheetHelper.keyMappings.getKey(e);
 
-                    switch (key) {
-                        case self._config.keys.CTRL:
-                            self._keyState.CTRLdown = false;
-                            self.currentDomItems.$endTime.css('background', '');
-                            break;
-                        case self._config.keys.SHIFT:
-                            self._keyState.SHIFTdown = false;
-                            self.currentDomItems.$startTime.css('background', '');
-                            break;
-                        case self._config.keys.ALT:
-                            self._keyState.ALTdown = false;
-                            break;
-                        default:
-                    }
-                });
-
-            var $btnSave = jQuery('#save_ts_entry_button');
-
-            //capture POST, change form POST to ajax post.
-            jQuery('#TSEntryForm').submit(function (e) {
+            // Capture POST, change form POST to ajax post.
+            $(this.selectors.entryForm).submit(function (e) {
+                // Prevent the normal form submission
                 e.preventDefault();
-                var $this = jQuery(this);
+
+                var $this    = $(this);
                 var formData = $this.serialize();
 
                 $.ajax({
                     type: "POST",
                     url: '',
                     data: formData,
+                    dataType: 'html',
                     success: function (data) {
-
                         //remove loading gif.
-                        jQuery('.ajax_loading_bigdark').remove();
+                        $('.ajax_loading_bigdark').remove();
 
                         //replace save button
-                        jQuery('.entry_save').append($btnSave);
+                        var $btnSave = $('#save_ts_entry_button');
+                        $('.entry_save').append($btnSave);
 
-                        $data = jQuery(data);
-                        //console.log(JSON.stringify(data));
+                        $data = $(data);
 
                         var $errors = $data.find('.error');
                         if ($errors.length > 2) {
@@ -214,27 +189,25 @@ var NRD = NRD || {};
                         }
                         else {
                             //let Nerd know their time was saved properly!
-                            var $successMsg = jQuery('<div />').text('Entry saved!').addClass('success');
+                            var $successMsg = $('<div />').text('Entry saved!').addClass('success');
                             NRD.TimesheetHelper.ui.displayMessage($successMsg);
-
                             NRD.TimesheetHelper.TimeManipulator.shiftTimes(self.currentDomItems.$startTime, self.currentDomItems.$endTime);
-
                             self.currentDomItems.$notes.val('');
-                            jQuery('#TSEntryInline').html($data.find('#TSEntryInline').html());
-
-
+                            $('#TSEntryInline').html($data.find('#TSEntryInline').html());
                         }
-                    },
-                    dataType: 'html'
+                    }
                 });
+
                 return false;
             });
         } //end bind.
     };
 
     NRD.TimesheetHelper.EntryEditor = {
-        active: false, // flag that says whether we're currently editing entries or not.
-        entryIndex: -1, //keeps track of current index of row for entries
+        // flag that says whether we're currently editing entries or not.
+        active: false,  
+        // keeps track of current index of row for entries
+        entryIndex: -1, 
         _originalText : '',
         $currentRow: null,
         setRow: function($entryRow) {
@@ -281,19 +254,11 @@ var NRD = NRD || {};
             this._originalText = '';
         },
         highlightRow: function(){
-
             this.setRow();
 
             if (this.$currentRow !== null) {
-
                 this.$currentRow.find('.edit_entry').trigger('click');
                 this.$currentRow.find('#notes').focus().select();
-/*
-                this.$currentRow.children().each(function (i, o) {
-                    jQuery(o).css('background-color', '#FFFFCC');
-                });
-                */
-
                 this._originalText = this.rowToString();
             }
         },
@@ -303,21 +268,13 @@ var NRD = NRD || {};
                 var tempText = this.$currentRow.find('.inline_text_edit').val();
                 //remove the editing elements of the row.
                 this.$currentRow.find('.cancel_edit').filter(function () {
-                    return jQuery(this).css('display') !== 'none';
+                    return $(this).css('display') !== 'none';
                 }).click();
-
-/*
-                //unhighlight the current row
-                this.$currentRow.children().each(function (i, o) {
-                    jQuery(o).css('background-color', '');
-                });
-                */
 
                 this.$currentRow.find('td.notes').text(tempText);
             }
         },
         increaseRow: function() {
-
             this.saveRowIfChanged();
             if (this.entryIndex + 1 >= this.maxRows()) {
                 this.entryIndex = this.maxRows() - 1;
@@ -328,7 +285,6 @@ var NRD = NRD || {};
             }
         },
         decreaseRow: function() {
-            //this.active = true;
             this.entryIndex--;
 
             if (this.entryIndex > -1) {
@@ -347,14 +303,14 @@ var NRD = NRD || {};
             url = $.trim(window.location.pathname);
             var data = this.$currentRow.find(':input:not(.unflag_input)').serializeArray();
 
-
             $.ajax({
                 type: "POST",
                 url: url,
                 data: data,
+                dataType: 'html',
                 success: function (data) {
 
-                    $data = jQuery(data);
+                    $data = $(data);
 
                     var $errors = $data.find('.error');
                     if ($errors.length > 2) {
@@ -363,18 +319,16 @@ var NRD = NRD || {};
                     }
                     else {
                         //let Nerd know their time was saved properly!
-                        var $successMsg = jQuery('<div />').text('Entry saved!').addClass('success');
+                        var $successMsg = $('<div />').text('Entry saved!').addClass('success');
                         NRD.TimesheetHelper.ui.displayMessage($successMsg);
 
                         self.replaceEntryHTML($data);
 
                     }
-                },
-                dataType: 'html'
+                }
             });
         },
         replaceEntryHTML: function($data) {
-
             if (this.entryIndex > -1) {
                 //block all input temporarily.
                 var buffer = ''; // use to collect and enter keys lost while blocking input
@@ -384,7 +338,7 @@ var NRD = NRD || {};
                 });
                 var savedText = this.$currentRow.find('.notes textarea').val();
                 this.unhighlightRow();
-                jQuery('#TSEntryInline').html($data.find('#TSEntryInline').html());
+                $('#TSEntryInline').html($data.find('#TSEntryInline').html());
                 this.highlightRow();
                 var $textBox = this.$currentRow.find('.notes textarea');
                 $textBox.focus();
@@ -394,20 +348,19 @@ var NRD = NRD || {};
                 $(window).die('keydown keyup');
             }
         }
-
     };
 
     NRD.TimesheetHelper.TimeManipulator = {
         increase: function ($element, value) {
             value = (typeof value !== 'undefined') ? value : 15;
             var currentValue = this._getElementTime($element);
-            var newValue = this.getNewTime(currentValue, value);
+            var newValue     = this.getNewTime(currentValue, value);
             $element.val(newValue);
         },
         decrease: function ($element, value) {
             value = (typeof value !== 'undefined') ? value * -1 : -15;
             var currentValue = this._getElementTime($element);
-            var newValue = this.getNewTime(currentValue, value);
+            var newValue     = this.getNewTime(currentValue, value);
             $element.val(newValue);
         },
         _getElementTime: function ($element) {
@@ -442,29 +395,30 @@ var NRD = NRD || {};
             $element1.val($element2.val());
             $element2.val(newEndTimeString);
 
-
-            jQuery('#orig_time_remaining').val(jQuery('#orig_time_remaining').val() - (timeDifference / 60));
+            $('#orig_time_remaining').val($('#orig_time_remaining').val() - (timeDifference / 60));
             updateRemainingTime();
         }
     };
 
     NRD.TimesheetHelper.ajaxHelper = {
         submit: function (url, data, success) {
-            var URL = (typeof url === 'undefined') ? '' : url;
+            var URL      = (typeof url === 'undefined') ? '' : url;
             var postData = (typeof data === 'undefined') ? '' : data;
+
             $.ajax({
                 type: "POST",
                 url: URL,
                 data: postData,
+                dataType: 'html',
                 success: function (data) {
 
                     //remove loading gif.
-                    jQuery('.ajax_loading_bigdark').remove();
+                    $('.ajax_loading_bigdark').remove();
 
                     //replace save button
-                    jQuery('.entry_save').append($btnSave);
+                    $('.entry_save').append($btnSave);
 
-                    $data = jQuery(data);
+                    $data = $(data);
 
                     var $errors = $data.find('.error');
                     if ($errors.length > 2) {
@@ -473,25 +427,18 @@ var NRD = NRD || {};
                     }
                     else {
                         //let Nerd know their time was saved properly!
-                        var $successMsg = jQuery('<div />').text('Entry saved!').addClass('success');
+                        var $successMsg = $('<div />').text('Entry saved!').addClass('success');
                         NRD.TimesheetHelper.ui.displayMessage($successMsg);
 
                         NRD.TimesheetHelper.TimeManipulator.shiftTimes();
 
-                        jQuery('#notes').val('');
-                        jQuery('#TSEntryInline').html($data.find('#TSEntryInline').html());
+                        $('#notes').val('');
+                        $('#TSEntryInline').html($data.find('#TSEntryInline').html());
 
 
                     }
                 },
-                dataType: 'html'
             });
-        }
-    };
-
-    NRD.TimesheetHelper.keyMappings = {
-        getKey: function (e) {
-            return (e.keyCode ? e.keyCode : e.which);
         }
     };
 
@@ -509,4 +456,5 @@ var NRD = NRD || {};
     };
 
     NRD.TimesheetHelper.init();
-})();
+
+})(jQuery);
