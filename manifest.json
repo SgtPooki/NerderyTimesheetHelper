@@ -27,7 +27,7 @@
   "web_accessible_resources": [
       "jquery-1.9.1.min.js",
       "Date.js",
-      "NerderyTimesheetHelper2.js"
+      "NerderyTimesheetHelper.js"
   ],
   "update_url": "https://github.com/bitwalker/NerderyTimesheetHelper/raw/master/updates.xml"
 }
