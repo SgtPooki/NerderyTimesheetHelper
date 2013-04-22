@@ -1,6 +1,6 @@
 {
   "name": "Nerdery Timesheet Helper",
-  "version": "1.1",
+  "version": "1.2",
   "manifest_version": 2,
   "description": "Helps you use the nerdery timesheet more quickly using keyboard shortcuts",
   "icons": {
@@ -29,5 +29,5 @@
       "Date.js",
       "NerderyTimesheetHelper2.js"
   ],
-  "update_url": "http://athens.sierrabravo.net/~rdempsey/Downloads/NTHupdates/updates.xml"
+  "update_url": "https://github.com/bitwalker/NerderyTimesheetHelper/raw/master/updates.xml"
 }
