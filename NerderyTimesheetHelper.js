@@ -1,324 +1,512 @@
-// ==UserScript==
-// @name		Nerdery TimeSheet helper
-// @require		http://code.jquery.com/jquery-1.9.1.min.js
-// @namespace	http://use.i.E.your.homepage/
-// @version		0.5
-// @description helpful things when using the nerdery's timesheet
-// @match		https://mainframe.nerdery.com/timesheet.php*
-// @copyright	2012+, Russell Dempsey
-// ==/UserScript==
+var NRD = NRD || {};
 
+(function () {
+    NRD.TimesheetHelper = {
+        center: function() {
+            this.setDomItems();
+            window.scrollTo(0, this.currentDomItems.$notes.offset().top - ($(window).height()/2));
+        },
+        _config: {
+            keys: {
+                ENTER: 13,
+                SHIFT: 16,
+                CTRL: 17,
+                ALT: 18,
+                ESC: 27,
+                ARROW_LEFT: 37,
+                ARROW_UP: 38,
+                ARROW_RIGHT: 39,
+                ARROW_DOWN: 40,
+                DEL: 46
+            },
+            defaults: {
 
+            },
+            keyMappings: {
 
-/*
- * To-Do:
- *DONE** Block submit while a submit is still processing (OR allow multiple time entries to be submitted at the same time by updating input fields before return results of ajax post. IF there was an error, add to array and require fixing of errors prior to submitting another entry)
- * add quick ajax posting ability to all timesheet fields (remove timesheet entry, etc..)
- *DONE** aad ability to up/down arrow to increase or decrease the time set. (when focused on time entries): jQuery('#start_time2').unbind()
- * allow up and down arrow (with ALT) to scroll through previous timesheet logs and either delete or edit them. (edit with enter, delete with
- *DONE** automatically set times to the most appropriate time slots (from last submitted time to blank)
- * Make window scroll when the trying to edit entries and the element is lower than the screen
- * finish
- *
- *
- */
-
-jQuery(function() {
-var ENTER = 13;
-var CTRL = 17;
-var SHIFT = 16;
-var ALT = 18;
-var ARROW_LEFT = 37;
-var ARROW_UP = 38;
-var ARROW_RIGHT = 39;
-var ARROW_DOWN = 40;
-var ESC = 27;
-var DEL = 46;
-
-var CTRLdown = false;
-var SHFTdown = false;
-var ALTdown = false;
-
-var $endTime = jQuery('.entry_end > input');
-var $startTime = jQuery('.entry_start > input');
-
-var entryIndex = -1;
-var editingEntries = false;
-
-jQuery('.time_entry_inputs').live('keydown', function(e){
-    var key = getKey(e);
-
-    switch (key)
-    {
-        case CTRL:
-            CTRLdown = true;
-            $endTime.css('background', 'yellow');
-            break;
-        case SHIFT:
-            SHFTdown = true;
-            $startTime.css('background', 'yellow');
-            break;
-        case ALT:
-            ALTdown = true;
-            break;
-        default:
-    }
-}).live('keyup', function(e){
-        var key = getKey(e);
-
-        switch (key)
-        {
-            case CTRL:
-                CTRLdown = false;
-                $endTime.css('background', '');
-                break;
-            case SHIFT:
-                SHFTdown = false;
-                $startTime.css('background', '');
-                break;
-            case ALT:
-                ALTdown = false;
-                break;
-            default:
-        }
-    });
-
-
-jQuery('#notes').live('keydown', function(e){
-    var key = getKey(e);
-    if(key == ENTER && !CTRLdown && !editingEntries ) {
-        e.preventDefault();
-
-        jQuery('#save_ts_entry_button').trigger('click');
-
-        return false;
-
-    } else if (CTRLdown && SHFTdown && (key == ARROW_UP || key == ARROW_DOWN)) {
-        if (key == ARROW_UP) {
-            incrementEndTime();
-            incrementStartTime();
-        } else {
-            decrementEndTime();
-            decrementStartTime();
-        }
-        updateRemainingTime();
-        return false;
-
-    } else if (CTRLdown && (key == ARROW_UP || key == ARROW_DOWN)) {
-        if (key == ARROW_UP) {
-            incrementEndTime();
-        } else {
-            decrementEndTime();
-        }
-        updateRemainingTime();
-        return false;
-
-    } else if (SHFTdown && (key == ARROW_UP || key == ARROW_DOWN)) {
-        if (key == ARROW_UP) {
-            incrementStartTime();
-        } else {
-            decrementStartTime();
-        }
-        updateRemainingTime();
-        return false;
-
-    } else if (ALTdown && (key == ARROW_DOWN || key == ARROW_UP)) {
-
-        //we're going down/up to edit the previously entered entries.
-        var numberOfEntries = jQuery('.entry_row').length;
-        var $cancelButton = jQuery('.entry_row').eq(entryIndex).find('.cancel_edit').filter(function(){return jQuery(this).css('display') !== 'none';});
-
-        if ($cancelButton.length === 1) {
-            $cancelButton.click();
-        }
-
-        //unhighlight the previous element (or fail..)
-        jQuery('.entry_row').eq(entryIndex).children().each(function(i,o){ jQuery(o).css('background-color', '');});
-
-        //increment entry index
-        if (key == ARROW_DOWN) {
-            entryIndex++;
-        } else {
-            entryIndex--;
-        }
-
-
-        if (entryIndex <= -1) {
-            entryIndex = -1;
-            editingEntries = false;
-            return;
-        } else if (entryIndex >= numberOfEntries) {
-            entryIndex = numberOfEntries-1;
-        }
-
-        //highlight the entry
-        jQuery('.entry_row').eq(entryIndex).children().each(function(i,o){ jQuery(o).css('background-color', '#FFFFCC');});
-
-        jQuery('.entry_row').eq(entryIndex).find('.edit_entry').trigger('click');
-        editingEntries = true;
-
-    } else if (editingEntries && (key == ENTER || key == ESC || key == DEL)) {
-        e.preventDefault();
-        var $currentRow = jQuery('.entry_row').eq(entryIndex);
-
-        if (key == ENTER) {
-            //save the text.
-        } else if (key == ESC) {
-            //Go back to entering a new entry
-            $currentRow.children().each(function(i,o){ jQuery(o).css('background-color', '');});
-            jQuery('.entry_row').eq(entryIndex).find('.cancel_edit').trigger('click');
-            entryIndex = -1;
-            jQuery('#notes').focus();
-        } else if (key == DEL && ALTdown) {
-            //delete the currently highlighted entry. (trigger click on delete button);
-            jQuery('.entry_row').eq(entryIndex).find('.cancel_edit').trigger('click');
-            var $deleteButton = $currentRow.find('.delete_entry');
-            var paramArray = $deleteButton.attr('href').split('(').splice(1)[0].replace(')', '').replace(', ', ',').replace(/'/gm, '').split(',');
-            var week = paramArray[0];
-            var row = paramArray[1];
-            var url = url = '/timesheet.php?ts_user=rdempsey&week_ending=' + week + '&delete=' + row;
-            $currentRow.remove();
-            //jQuery('.entry_row').eq(entryIndex).children().each(function(i,o){ jQuery(o).css('background-color', '#FFFFCC');});
-            //jQuery('.entry_row').eq(entryIndex).find('.edit_entry').trigger('click');
-
-            $.ajax({
-                type: "GET",
-                url: url,
-                success: function(data){
-                    var $data = jQuery(data);
-                    var $successfullyDeletedRow = jQuery('<div />').text('Entry deleted!').addClass('success');
-                    displayMessage($successfullyDeletedRow);
-                    jQuery('#TSEntryInline').html($data.find('#TSEntryInline').html());
-                    jQuery('.entry_row').eq(entryIndex).children().each(function(i,o){ jQuery(o).css('background-color', '#FFFFCC');});
-                    jQuery('.entry_row').eq(entryIndex).find('.edit_entry').trigger('click');
-
-                }
-            });
-
-        }
-        return false;
-    }
-
-});
-
-
-//save save button to allow us to be able to regenerate it after ajax load
-var $btnSave = jQuery('#save_ts_entry_button');
-
-//capture POST, change form POST to ajax post.
-jQuery('#TSEntryForm').submit(function(e){
-
-    e.preventDefault();
-    var $this = jQuery(this);
-    var formData = $this.serialize();
-    console.log(formData);
-
-    $.ajax({
-        type: "POST",
-        url: '',
-        data: formData,
-        success: function(data){
-
-            //remove loading gif.
-            jQuery('.ajax_loading_bigdark').remove();
-
-            //replace save button
-            jQuery('.entry_save').append($btnSave);
-
-            $data = jQuery(data);
-            //console.log(JSON.stringify(data));
-
-            var $errors = $data.find('.error');
-            if ($errors.length > 2)
-            {
-                var $errorMsg = $data.find('.error').first();
-                displayMessage($errorMsg);
-            }
-            else
-            {
-                //let Nerd know their time was saved properly!
-                var $successMsg = jQuery('<div />').text('Entry saved!').addClass('success');
-                displayMessage($successMsg);
-
-                setNextTimes();
-
-                jQuery('#notes').val('');
-                jQuery('#TSEntryInline').html($data.find('#TSEntryInline').html());
-
-
+            },
+            selectors: {
+                notes: '[name="notes"]',
+                startTime: '[name="start_time"]',
+                endTime: '[name="end_time"]'
             }
         },
-        dataType: 'html'
-    });
-    return false;
-});
+        setDomItems: function () {
+            $notes = jQuery(this._config.selectors.notes);
+            $notes = ($notes.length > 1) ? $notes.eq(1) : $notes.eq(0);
+            $startTime = jQuery(this._config.selectors.startTime);
+            $startTime = ($startTime.length > 1) ? $startTime.eq(1) : $startTime.eq(0);
+            $endTime = jQuery(this._config.selectors.endTime);
+            $endTime = ($endTime.length > 1) ? $endTime.eq(1) : $endTime.eq(0);
+            this.currentDomItems = {'$notes': $notes, 'notes': $notes[0],
+                '$startTime': $startTime, 'startTime': $startTime[0],
+                '$endTime': $endTime, 'endTime': $endTime[0]};
+            return this.currentDomItems;
+        },
+        _appState: {
+            editingEntries: false
+        },
+        _keyState: {
+            SHIFTdown: false,
+            CTRLdown: false,
+            ALTdown: false
+        },
+        init: function () {
+            this._bind();
+        },
+        _bind: function () {
+            var self = this;
+            jQuery(this._config.selectors.notes).live('keydown',function (e) {
+                var key = self.keyMappings.getKey(e);
+                self.setDomItems();
+                switch (key) {
+                    case self._config.keys.CTRL:
+                        self._keyState.CTRLdown = true;
+                        self.currentDomItems.$endTime.css('background', 'yellow');
+                        break;
+                    case self._config.keys.SHIFT:
+                        self._keyState.SHIFTdown = true;
+                        self.currentDomItems.$startTime.css('background', 'yellow');
+                        break;
+                    case self._config.keys.ALT:
+                        self._keyState.ALTdown = true;
+                        break;
+                    default:
+                }
+                    if (key == self._config.keys.ENTER && !self._keyState.CTRLdown && !self.EntryEditor.active) {
+                        e.preventDefault();
 
-function getKey(e)
-{
-    return (e.keyCode ? e.keyCode : e.which);
-}
+                        //jQuery('#save_ts_entry_button').trigger('click');
+                        jQuery('#TSEntryForm').submit();
 
-function setNextTimes() {
+                        return false;
 
-    //timeArr = "6:30 PM".split(' '); timeArr[0] = timeArr[0].split(':')
+                    } else if (self._keyState.CTRLdown && self._keyState.SHIFTdown && (key == self._config.keys.ARROW_UP || key == self._config.keys.ARROW_DOWN)) {
+                        if (key == self._config.keys.ARROW_UP) {
+                            self.TimeManipulator.increase(self.currentDomItems.$startTime);
+                            self.TimeManipulator.increase(self.currentDomItems.$endTime);
+                        } else {
+                            self.TimeManipulator.decrease(self.currentDomItems.$startTime);
+                            self.TimeManipulator.decrease(self.currentDomItems.$endTime);
+                        }
+                        updateRemainingTime(); //mainframe function.
+                        return false;
 
-    var time = jQuery('#end_time2').val();
-    var endTime = Date.parse(time);
+                    } else if (self._keyState.CTRLdown && (key == self._config.keys.ARROW_UP || key == self._config.keys.ARROW_DOWN)) {
+                        if (key == self._config.keys.ARROW_UP) {
+                            self.TimeManipulator.increase(self.currentDomItems.$endTime);
+                        } else {
+                            self.TimeManipulator.decrease(self.currentDomItems.$endTime);
+                        }
+                        updateRemainingTime();
+                        return false;
 
-    var startTime = Date.parse(jQuery('#start_time2').val());
+                    } else if (self._keyState.SHIFTdown && (key == self._config.keys.ARROW_UP || key == self._config.keys.ARROW_DOWN)) {
+                        if (key == self._config.keys.ARROW_UP) {
+                            self.TimeManipulator.increase(self.currentDomItems.$startTime);
+                        } else {
+                            self.TimeManipulator.decrease(self.currentDomItems.$startTime);
+                        }
+                        updateRemainingTime();
+                        return false;
 
-    var timeDifference = (endTime - startTime) / 1000 / 60;
-    var newEndTime = new Date(endTime.getTime() + timeDifference *60000);
+                    } else if (self._keyState.ALTdown && (key == self._config.keys.ARROW_DOWN || key == self._config.keys.ARROW_UP)) {
 
-    var amOrPm = '';
+                        if (key == self._config.keys.ARROW_DOWN) {
+                            self.EntryEditor.increaseRow();
+                        } else {
+                            self.EntryEditor.decreaseRow();
+                        }
+
+                        self.center();
+                        self.currentDomItems.$notes.focus().select();
+
+                    } else if (self.EntryEditor.active &&
+                            (key == self._config.keys.ENTER ||
+                            key == self._config.keys.ESC ||
+                            key == self._config.keys.DEL)) {
+                        e.preventDefault();
+                        console.log('Entry editor is active');
+                        //self.EntryEditor.setRow(jQuery('.entry_row').eq(self.EntryEditor.entryIndex));
+
+                        if (key == self._config.keys.ENTER) {
+                            //save the text.
+                            console.log('ENTER was hit and ENTRY editor is active');
+                            //self.EntryEditor.saveRowIfChanged();
+                        } else if (key == self._config.keys.ESC) {
+                            //Go back to entering a new entry
+                            self.EntryEditor.reset();
+
+                            self.center();
+                            self.currentDomItems.$notes.focus();
+
+                        } else if (key == self._config.keys.DEL && self._keyState.ALTdown) {
+                            //delete the currently highlighted entry. (trigger click on delete button);
+                            self.EntryEditor.unhighlightRow();
+                            var $deleteButton = self.EntryEditor.$currentRow.find('.delete_entry');
+                            var paramArray = $deleteButton.attr('href').split('(').splice(1)[0].replace(')', '').replace(', ', ',').replace(/'/gm, '').split(',');
+                            var week = paramArray[0];
+                            var row = paramArray[1];
+                            var url = url = '/timesheet.php?&week_ending=' + week + '&delete=' + row;
+                            self.EntryEditor.$currentRow.remove();
+                            self.EntryEditor.highlightRow();
+
+                            $.ajax({
+                                type: "GET",
+                                url: url,
+                                success: function (data) {
+                                    var $data = jQuery(data);
+                                    var $successfullyDeletedRow = jQuery('<div />').text('Entry deleted!').addClass('success');
+                                    self.ui.displayMessage($successfullyDeletedRow);
+
+                                    self.EntryEditor.replaceEntryHTML($data);
+                                }
+                            });
+                        }
+                    }
+
+            }).live('keyup', function (e) {
+                    var key = NRD.TimesheetHelper.keyMappings.getKey(e);
+
+                    switch (key) {
+                        case self._config.keys.CTRL:
+                            self._keyState.CTRLdown = false;
+                            self.currentDomItems.$endTime.css('background', '');
+                            break;
+                        case self._config.keys.SHIFT:
+                            self._keyState.SHIFTdown = false;
+                            self.currentDomItems.$startTime.css('background', '');
+                            break;
+                        case self._config.keys.ALT:
+                            self._keyState.ALTdown = false;
+                            break;
+                        default:
+                    }
+                });
+
+            var $btnSave = jQuery('#save_ts_entry_button');
+
+            //capture POST, change form POST to ajax post.
+            jQuery('#TSEntryForm').submit(function (e) {
+                e.preventDefault();
+                var $this = jQuery(this);
+                var formData = $this.serialize();
+
+                $.ajax({
+                    type: "POST",
+                    url: '',
+                    data: formData,
+                    success: function (data) {
+
+                        //remove loading gif.
+                        jQuery('.ajax_loading_bigdark').remove();
+
+                        //replace save button
+                        jQuery('.entry_save').append($btnSave);
+
+                        $data = jQuery(data);
+                        //console.log(JSON.stringify(data));
+
+                        var $errors = $data.find('.error');
+                        if ($errors.length > 2) {
+                            var $errorMsg = $data.find('.error').first();
+                            NRD.TimesheetHelper.ui.displayMessage($errorMsg);
+                        }
+                        else {
+                            //let Nerd know their time was saved properly!
+                            var $successMsg = jQuery('<div />').text('Entry saved!').addClass('success');
+                            NRD.TimesheetHelper.ui.displayMessage($successMsg);
+
+                            NRD.TimesheetHelper.TimeManipulator.shiftTimes(self.currentDomItems.$startTime, self.currentDomItems.$endTime);
+
+                            self.currentDomItems.$notes.val('');
+                            jQuery('#TSEntryInline').html($data.find('#TSEntryInline').html());
 
 
-    var endHour = newEndTime.getHours();
-    var endMin = newEndTime.getMinutes();
+                        }
+                    },
+                    dataType: 'html'
+                });
+                return false;
+            });
+        } //end bind.
+    };
 
-    var newEndTimeString = endHour + ':' + ((endMin === 0) ? '00' : endMin) + ' ' + newEndTime.toString('tt');
-    var newEndTimeString = timesheetFormat(newEndTime); //.toString('h:mm tt');
+    NRD.TimesheetHelper.EntryEditor = {
+        active: false, // flag that says whether we're currently editing entries or not.
+        entryIndex: -1, //keeps track of current index of row for entries
+        _originalText : '',
+        $currentRow: null,
+        setRow: function($entryRow) {
+            this.active = true;
+            if (this.entryIndex === -1) {
+                $entryRow = null;
+            } else {
+                $entryRow = (typeof $entryRow === 'undefined') ? $('.entry_row').eq(this.entryIndex) : $entryRow;
+                this.$currentRow = $entryRow;
+            }
+        },
+        rowToString: function(){
+            var tempString = '';
+            if (this.active) {
+                this.$currentRow.find('input, textarea').each(function(i,o){
+                    tempString = tempString + $(o).val();
+                });
+            }
+
+            return tempString;
+        },
+        hasRowChanged: function(){
+            if (this.active) {
+                return this._originalText === this.rowToString();
+            } else {
+                return false;
+            }
+        },
+        saveRowIfChanged: function($entryRow) {
+            if (this.active) {
+                if (this.hasRowChanged()) {
+                    return; // data is the same, no need to save.
+                }
+
+                this.submitAjax();
+            }
+        },
+        reset: function() {
+            this.saveRowIfChanged();
+            this.unhighlightRow();
+            this.entryIndex = -1;
+            this.$currentRow = null;
+            this.active = false;
+            this._originalText = '';
+        },
+        highlightRow: function(){
+
+            this.setRow();
+
+            if (this.$currentRow !== null) {
+
+                this.$currentRow.find('.edit_entry').trigger('click');
+                this.$currentRow.find('#notes').focus().select();
+/*
+                this.$currentRow.children().each(function (i, o) {
+                    jQuery(o).css('background-color', '#FFFFCC');
+                });
+                */
+
+                this._originalText = this.rowToString();
+            }
+        },
+        unhighlightRow: function() {
+            if (this.$currentRow !== null) {
+
+                var tempText = this.$currentRow.find('.inline_text_edit').val();
+                //remove the editing elements of the row.
+                this.$currentRow.find('.cancel_edit').filter(function () {
+                    return jQuery(this).css('display') !== 'none';
+                }).click();
+
+/*
+                //unhighlight the current row
+                this.$currentRow.children().each(function (i, o) {
+                    jQuery(o).css('background-color', '');
+                });
+                */
+
+                this.$currentRow.find('td.notes').text(tempText);
+            }
+        },
+        increaseRow: function() {
+
+            this.saveRowIfChanged();
+            if (this.entryIndex + 1 >= this.maxRows()) {
+                this.entryIndex = this.maxRows() - 1;
+            } else {
+                this.unhighlightRow();
+                this.entryIndex++;
+                this.highlightRow();
+            }
+        },
+        decreaseRow: function() {
+            //this.active = true;
+            this.entryIndex--;
+
+            if (this.entryIndex > -1) {
+                this.saveRowIfChanged();
+                this.unhighlightRow();
+                this.highlightRow();
+            } else {
+                this.reset();
+            }
+        },
+        maxRows: function() {
+            return $('.entry_row').length;
+        },
+        submitAjax: function() {
+            self = this;
+            url = $.trim(window.location.pathname);
+            var data = this.$currentRow.find(':input:not(.unflag_input)').serializeArray();
 
 
-    //empty timesheet input fields.
-    jQuery('#start_time2').val(jQuery('#end_time2').val());
-    jQuery('#end_time2').val(newEndTimeString);
+            $.ajax({
+                type: "POST",
+                url: url,
+                data: data,
+                success: function (data) {
+
+                    $data = jQuery(data);
+
+                    var $errors = $data.find('.error');
+                    if ($errors.length > 2) {
+                        var $errorMsg = $data.find('.error').first();
+                        NRD.TimesheetHelper.ui.displayMessage($errorMsg);
+                    }
+                    else {
+                        //let Nerd know their time was saved properly!
+                        var $successMsg = jQuery('<div />').text('Entry saved!').addClass('success');
+                        NRD.TimesheetHelper.ui.displayMessage($successMsg);
+
+                        self.replaceEntryHTML($data);
+
+                    }
+                },
+                dataType: 'html'
+            });
+        },
+        replaceEntryHTML: function($data) {
+
+            if (this.entryIndex > -1) {
+                //block all input temporarily.
+                var buffer = ''; // use to collect and enter keys lost while blocking input
+                $(window).live('keydown keyup', function(e) {
+                    e.preventDefault();
+                    return false;
+                });
+                var savedText = this.$currentRow.find('.notes textarea').val();
+                this.unhighlightRow();
+                jQuery('#TSEntryInline').html($data.find('#TSEntryInline').html());
+                this.highlightRow();
+                var $textBox = this.$currentRow.find('.notes textarea');
+                $textBox.focus();
+                $textBox.val('');
+                $textBox.val(savedText);
+                NRD.TimesheetHelper.center();
+                $(window).die('keydown keyup');
+            }
+        }
+
+    };
+
+    NRD.TimesheetHelper.TimeManipulator = {
+        increase: function ($element, value) {
+            value = (typeof value !== 'undefined') ? value : 15;
+            var currentValue = this._getElementTime($element);
+            var newValue = this.getNewTime(currentValue, value);
+            $element.val(newValue);
+        },
+        decrease: function ($element, value) {
+            value = (typeof value !== 'undefined') ? value * -1 : -15;
+            var currentValue = this._getElementTime($element);
+            var newValue = this.getNewTime(currentValue, value);
+            $element.val(newValue);
+        },
+        _getElementTime: function ($element) {
+            return Date.parse($element.val());
+        },
+        getNewTime: function (baseValue, additionalValue) {
+            var newVal = new Date(baseValue.getTime() + (additionalValue * 60000));
+            return this.formatTime(newVal);
+        },
+        formatTime: function (value) {
+            return value.toString('h:mm tt');
+        },
+        shiftTimes: function ($element1, $element2) {
+            var time = $element2.val();
+            var endTime = Date.parse(time);
+
+            var startTime = Date.parse($element1.val());
+
+            var timeDifference = (endTime - startTime) / 1000 / 60;
+            var newEndTime = new Date(endTime.getTime() + timeDifference * 60000);
+
+            var amOrPm = '';
+
+            var endHour = newEndTime.getHours();
+            var endMin = newEndTime.getMinutes();
+
+            var newEndTimeString = endHour + ':' + ((endMin === 0) ? '00' : endMin) + ' ' + newEndTime.toString('tt');
+            var newEndTimeString = this.formatTime(newEndTime); //.toString('h:mm tt');
 
 
-    jQuery('#orig_time_remaining').val(jQuery('#orig_time_remaining').val() - (timeDifference/60));
-    updateRemainingTime();
-}
+            //empty timesheet input fields.
+            $element1.val($element2.val());
+            $element2.val(newEndTimeString);
 
-function timesheetFormat(value) {
-    return value.toString('h:mm tt');
-}
 
-function incrementBy15Min(value) {
-    var result = new Date(value.getTime() + 15 * 60000);
-    return timesheetFormat(result);
-}
-function decrementBy15Min(value) {
-    var result = new Date(value.getTime() - 15 * 60000);
-    return timesheetFormat(result);
-}
-function incrementEndTime() {
-    var currentEndTime = Date.parse($endTime.val());
-    $endTime.val(incrementBy15Min(currentEndTime));
-}
-function decrementEndTime() {
-    var currentEndTime = Date.parse($endTime.val());
-    $endTime.val(decrementBy15Min(currentEndTime));
-}
-function incrementStartTime() {
-    var currentStartTime = Date.parse($startTime.val());
-    $startTime.val(incrementBy15Min(currentStartTime));
-}
-function decrementStartTime() {
-    var currentStartTime = Date.parse($startTime.val());
-    $startTime.val(decrementBy15Min(currentStartTime));
-}
-function displayMessage($element) {
-    $element.insertBefore('#TSEntryForm');
-    setTimeout(function(){$element.remove()}, 5000);
-}
-});
+            jQuery('#orig_time_remaining').val(jQuery('#orig_time_remaining').val() - (timeDifference / 60));
+            updateRemainingTime();
+        }
+    };
+
+    NRD.TimesheetHelper.ajaxHelper = {
+        submit: function (url, data, success) {
+            var URL = (typeof url === 'undefined') ? '' : url;
+            var postData = (typeof data === 'undefined') ? '' : data;
+            $.ajax({
+                type: "POST",
+                url: URL,
+                data: postData,
+                success: function (data) {
+
+                    //remove loading gif.
+                    jQuery('.ajax_loading_bigdark').remove();
+
+                    //replace save button
+                    jQuery('.entry_save').append($btnSave);
+
+                    $data = jQuery(data);
+
+                    var $errors = $data.find('.error');
+                    if ($errors.length > 2) {
+                        var $errorMsg = $data.find('.error').first();
+                        NRD.TimesheetHelper.ui.displayMessage($errorMsg);
+                    }
+                    else {
+                        //let Nerd know their time was saved properly!
+                        var $successMsg = jQuery('<div />').text('Entry saved!').addClass('success');
+                        NRD.TimesheetHelper.ui.displayMessage($successMsg);
+
+                        NRD.TimesheetHelper.TimeManipulator.shiftTimes();
+
+                        jQuery('#notes').val('');
+                        jQuery('#TSEntryInline').html($data.find('#TSEntryInline').html());
+
+
+                    }
+                },
+                dataType: 'html'
+            });
+        }
+    };
+
+    NRD.TimesheetHelper.keyMappings = {
+        getKey: function (e) {
+            return (e.keyCode ? e.keyCode : e.which);
+        }
+    };
+
+    NRD.TimesheetHelper.ui = {
+        _config: {
+            messageDisplayTime: 1000 * 5,
+            beforeSelector: '#TSEntryForm'
+        },
+        displayMessage: function ($element) {
+            $element.insertBefore(this._config.beforeSelector);
+            setTimeout(function () {
+                $element.remove()
+            }, this._config.messageDisplayTime);
+        }
+    };
+
+    NRD.TimesheetHelper.init();
+})();
