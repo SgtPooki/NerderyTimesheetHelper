@@ -73,3 +73,19 @@ input[name="dnd.xpath_quote"] {
 input[type=submit] {
 	font-size:20px;
 }
+
+#status {
+	width: 300px;
+	padding: 5px;
+	text-align: center;
+	border-radius: 5px;
+	display: inline-block;
+}
+
+#status.success {
+	background-color: #B9F2B9;
+}
+
+#status.error {
+	background-color: #F29688;
+}

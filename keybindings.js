@@ -173,12 +173,23 @@ var KEYS = {
         combo.meta    = meta.indexOf('meta') > -1
         return combo;
     },
-        // Pretty print the provided combo
+    // Pretty print the provided combo
     getComboString: function(combo) {
         var meta = (combo.ctrl  ? 'CTRL+'  : '') + 
                    (combo.alt   ? 'ALT+'   : '') +
                    (combo.shift ? 'SHIFT+' : '') +
                    (combo.meta  ? 'META+'  : '');
         return meta + (this.getNameFor(combo.keyCode) || '');
+    },
+    // Reverse of getComboString, you should get the original combo if you call comboFromString(getComboString)
+    comboFromString: function(str) {
+        var parts     = str.split('+');
+        var combo     = this.getEmptyCombo();
+        combo.keyCode = this.getCodeFor(parts[parts.length - 1]);
+        combo.ctrl    = parts.indexOf('CTRL') > -1;
+        combo.alt     = parts.indexOf('ALT') > -1;
+        combo.shift   = parts.indexOf('SHIFT') > -1;
+        combo.meta    = parts.indexOf('META') > -1;
+        return combo;
     }
 };

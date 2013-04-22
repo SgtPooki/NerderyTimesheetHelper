@@ -7,8 +7,6 @@
 </head>
 <body>
 	<h1>Nerdery Timesheet Helper Options</h1>
-	<!-- NOTIFICATIONS -->
-	<div id="status"></div>
 
 	<!-- OPTIONS -->
 	<form action="">
@@ -22,38 +20,34 @@
 			<div class="row">
 				<label for="dec_start_time">Decrement Start Time</label>
 				<input type="text" name="dec_start_time" id="dec_start_time" data-keybinder />
+				<span class="comment">Press ESC or BACKSPACE to clear. Tab to accept.</span>
 			</div>
 			<div class="row">
-				<label for="dec_start_time">Decrement End Time</label>
-				<input type="text" name="dec_start_time" id="dec_end_time" data-keybinder />
+				<label for="inc_end_time">Increment End Time</label>
+				<input type="text" name="inc_end_time" id="inc_end_time" data-keybinder />
+				<span class="comment">Press ESC or BACKSPACE to clear. Tab to accept.</span>
 			</div>
 			<div class="row">
 				<label for="dec_end_time">Decrement End Time</label>
 				<input type="text" name="dec_end_time" id="dec_end_time" data-keybinder />
+				<span class="comment">Press ESC or BACKSPACE to clear. Tab to accept.</span>
 			</div>
 		</fieldset>
 		<div class="row">
 			<input type="submit" value="Save" />
+			<!-- NOTIFICATIONS -->
+			<div id="status"></div>
 		</div>
 	</form>
+
+	<p class="about">
+		Want the source code? <a href="https://github.com/bitwalker/NerderyTimesheetHelper/">Check out the GitHub!</a><br />
+	</p>
 
 	<!-- EXTERNAL SCRIPTS -->
 	<script src="lib/underscore.min.js"></script>
 	<script src="lib/jquery.min.js"></script>
 	<script src="keybindings.js"></script>
 	<script src="options.js"></script>
-</body>
-</html>
-
-
-<body>
-
-	<p class="about">
-		XV is an <a href="http://github.com/sergeche/xmlview/">open-source project</a> and available for other browsers.<br />
-		Design inspiration: <a href="http://macrabbit.com/espresso/">Espresso Editor</a>
-	</p>
-	<script src="xv.js"></script>
-	<script src="options.js"></script>
-	
 </body>
 </html>
