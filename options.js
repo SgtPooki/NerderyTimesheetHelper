@@ -30,7 +30,7 @@
             }
         });
         // Display keybindings
-        _.each(options.keybindings, function(combo, name) {
+        _.each(BINDINGS, function(combo, name) {
             var $input = $('#' + name);
             $input.val(KEYS.getComboString(combo));
         });
