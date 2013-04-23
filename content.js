@@ -1,6 +1,10 @@
 (function($, root, undefined) {
 
     var TimeManager = {
+        getTimeFromElement: function($el) {
+            var time = $el.val() || moment().format('h:mm A');
+            return moment(time, 'h:mm A');
+        },
         increase: function ($element, interval) {
             var time = $element.val() || moment().format('h:mm A');
             var increased = moment(time, 'h:mm A').add('minutes', interval || 15);
@@ -40,7 +44,7 @@
             // Update the time remaining
             var $timeRemaining = $('#orig_time_remaining');
             $timeRemaining.val(parseInt($timeRemaining.val()) - diffInMin);
-            updateRemainingTime();
+            this.updateRemainingTime();
         }
     };
 
@@ -168,7 +172,7 @@
                 }
                 // If the time was updated, trigger updateRemainingTime and exit
                 if (timeUpdated) {
-                    updateRemainingTime(); // Mainframe function.
+                    this.updateRemainingTime(); // Mainframe function.
                     return false;
                 }
 
@@ -411,7 +415,33 @@
                 this.editRow();
             }
         },
-
+        // Update the display of remaining time on the current work order
+        updateRemainingTime: function() {
+            // Elements
+            var currentProject    = $('#project').val();
+            var $woInfoRemaining  = $('#time_entry_table #time_remaining');
+            var $woTableRemaining = $('#' + currentProject).prevUntil('tr').filter(function(i, el) {
+                return $(el).html().indexOf('hours') > -1;
+            });
+            // Get the original time remaining value
+            var $origTime         = $('#orig_time_remaining');
+            var origTimeRemaining = parseFloat($origTime.val());
+            // Get the start and end times as moments
+            var startTime         = TimeManager.getTimeFromElement(this.elements.$startTime);
+            var endTime           = TimeManager.getTimeFromElement(this.elements.$endTime);
+            // Calculate the duration of the difference between start and end time
+            var duration          = moment.duration(endTime.diff(startTime));
+            // Determine the hours, fraction of an hour, and the total in hours, of the duration
+            var hours             = duration.hours();
+            var hourFraction      = parseFloat((duration.minutes() / 60).toPrecision(2));
+            var totalDiff         = hours + hourFraction;
+            // Calculate the new time remaining
+            var newTimeRemaining  = origTimeRemaining - totalDiff;
+            // Set Work Order Information to the fractional difference
+            $woInfoRemaining.text(newTimeRemaining);
+            // Set Work Order table Remaining column to the humanized difference
+            $woTableRemaining.text(Math.round(newTimeRemaining) + ' hours');
+        }
     };
 
     if (!BINDINGS || !KEYS) {
