@@ -1,5 +1,16 @@
 (function($, root, undefined) {
 
+    // Delay the execution of a function by a set time
+    function delay(func, time) {
+        var timeout = null;
+        timeout = setTimeout(function() { 
+            func(); 
+            timeout = null; 
+        }, time || 100);
+    }
+
+    var app = {};
+
     var TimeManager = {
         getTimeFromElement: function($el) {
             var time = $el.val() || moment().format('h:mm A');
@@ -15,8 +26,13 @@
             var decreased = moment(time, 'h:mm A').subtract('minutes', interval || 15);
             $element.val(decreased.format('h:mm A'));
         },
-        getNextTime: function() {
-            return moment().add('minutes', 15 - (now.minutes() % 15));
+        getNextTime: function(relativeFrom) {
+            if (relativeFrom) {
+                return relativeFrom.clone().add('minutes', 15);
+            } else {
+                var now = moment();
+                return moment().add('minutes', 15 - (now.minutes() % 15));
+            }
         },
         getNearestTime: function() {
             var now = moment();
@@ -31,10 +47,10 @@
         shiftTimes: function ($start, $end) {
             // Get the current selected start time, or use the nearest time in it's place
             var start      = $start.val();
-            var startTime  = start ? moment(start) : getNearestTime();
+            var startTime  = start ? moment(start, 'h:mm A') : getNearestTime();
             // Get the current selected end time, or use the next time in it's place
             var end        = $end.val();
-            var endTime    = end ? moment(end) : getNextTime();
+            var endTime    = end ? moment(end, 'h:mm A') : getNextTime();
             // Calculate the difference between the start and end
             var diffInMin  = endTime.diff(startTime, 'minutes');
             var shiftedEnd = endTime.clone().add('minutes', diffInMin);
@@ -42,17 +58,24 @@
             $start.val(endTime.format('h:mm A'));
             $end.val(shiftedEnd.format('h:mm A'));
             // Update the time remaining
-            var $timeRemaining = $('#orig_time_remaining');
-            $timeRemaining.val(parseInt($timeRemaining.val()) - diffInMin);
-            this.updateRemainingTime();
+            var $timeRemaining  = $('#orig_time_remaining');
+            var origTimeRemaining = parseFloat($timeRemaining.val());
+            var duration        = moment.duration(origTimeRemaining * 60 - diffInMin, 'minutes');
+            var hours           = duration.hours();
+            var hourFraction    = parseFloat((duration.minutes() / 60).toPrecision(2));
+            var totalDiff       = hours + hourFraction;
+            // Calculate the new time remaining
+            var newTimeRemaining  = origTimeRemaining - totalDiff;
+            $timeRemaining.val(newTimeRemaining);
+            app.updateRemainingTime();
         }
     };
 
-    var app = {
+    app = {
 
         // App-wide configurables
         config: {
-            messageDisplayTime: 1000 * 5,
+            messageDisplayTime: 1000 * 2,
         },
 
         // Selectors for elements used by the extension
@@ -65,7 +88,8 @@
             entryForm:              '#TSEntryForm',
             notes:                  '[name="notes"]',
             startTime:              '[name="start_time"]',
-            endTime:                '[name="end_time"]'
+            endTime:                '[name="end_time"]',
+            deleteRow:              'a.delete_entry'
         },
 
         // The current set of elements as jQuery objects
@@ -115,6 +139,31 @@
                 self.submitForm($(this)); 
                 return false;
             });
+            // Intercept deletes in order to perform them asynchronously
+            $(this.selectors.deleteRow).on('click', function(e) {
+                e.stopImmediatePropagation();
+
+                var re       = /deleteRow\('(.+)', '([\w]+)\*([\d\w]+)'\)/;
+                var parsed   = re.exec($(this).attr('href'));
+                var tr       = $(this).parents('tr')
+                var deleting = {
+                    date:     parsed[1],
+                    user:     parsed[2],
+                    id:       parsed[3],
+                    elements: [ tr ]
+                };
+
+                // Delete any gap warnings between this entry and the next in the list
+                tr.nextUntil('.entry_row').map(function(i, el) {
+                    if ($(el).hasClass('gap_detection')) {
+                        deleting.elements.push($(el));
+                    }
+                });
+
+                self.deleteEntry(deleting);
+
+                return false;
+            });
         },
 
         // Restores bindings from localStorage
@@ -144,7 +193,6 @@
             }
             // If ENTER is pressed by itself when the editor is not active, submit the time entry
             if (KEYS.isKeyPressed(KEYS.Enter, combo.keyCode) && (!combo.ctrl || !combo.meta || !combo.shift) && !self.editing) {
-                console.log('Submit');
                 e.preventDefault();
                 // Submit entry form
                 $(self.selectors.entryForm).submit();
@@ -232,7 +280,6 @@
                 }
             }
         },
-
         // Handle all keyup events (primarily for cleaning up hilights, etc)
         handleKeyup: function(e) {
             if (KEYS.isKeyMeta(e.which)) {
@@ -245,17 +292,98 @@
                 }
             }
         },
-
         // Display a message to the user
         displayMessage: function ($element) {
-            $element.insertBefore(this.selectors.displayMessageBefore);
-            setTimeout($element.remove, this.config.messageDisplayTime);
+            var self = this;
+            $element.hide().insertBefore(this.selectors.displayMessageBefore).slideDown('fast');
+            delay(function() {
+                $element.slideUp('fast');
+                delay(function() { $element.remove(); }, self.config.messageDisplayTime);
+            }, this.config.messageDisplayTime);
         },
-
+        showOverlapWarning: function($row) {
+            var warning = $('<tr class="gap_detection"><td colspan="8">Timesheet overlap detected. Double-check your work, and fix if needed.</td></tr>');
+            $row.after(warning);
+        },
+        showGapWarning: function($row, startTime, endTime) {
+            var day = moment().format('dddd');
+            var timeRange = startTime.format('h:mmA') + ' to ' + endTime.format('h:mmA');
+            var params = '\'' + startTime.format('h:mmA') + '\', \'' + endTime.format('h:mmA') + '\', \'' + day + '\'';
+            var warning = $('<td colspan="8">' + timeRange + ':Take a break? Cool. Otherwise, <a href="javascript:fillTimesheetGap(' + params + ')">fill your timesheet</a>.</td>');
+            $row.after(warning);
+        },
         // Center the display on the current row
         center: function() {
             this.resetElements();
             window.scrollTo(0, this.elements.$notes.offset().top - ($(window).height() / 2));
+        },
+        refreshTimeEntries: function(html) {
+            var self = this;
+
+            if (html) {
+                $('#TSEntryInline').html(html);
+            }
+
+            var entries = $('.entry_row');
+            // Starts at the most recent and goes backwards through time
+            _.each(entries, function(i, entry) {
+                var $entry = $(entry);
+
+                var startTime = moment($('.start_time', $entry).text(), 'h:mmA');
+                var endTime   = moment($('.end_time', $entry).text(), 'h:mmA');
+
+                // We don't need to do anything if this is the last entry
+                if (i + 1 < entries.length) {
+                    var $previousEntry = $(entries[i + 1]);
+                    var prevStart = moment($('.start_time', $previousEntry), 'h:mmA');
+                    var prevEnd   = moment($('.end_time', $previousEntry), 'h:mmA');
+
+                    var overlapped = false;
+                    if (startTime.isAfter(prevStart) && startTime.isBefore(prevEnd))
+                        overlapped = true;
+                    else if (startTime.isBefore(prevStart) && endTime.isAfter(prevStart))
+                        overlapped = true;
+
+                    // Cannot be overlapped and gapped at the same time
+                    if (overlapped) {
+                        self.showOverlapWarning($entry);
+                    } else {
+                        // Determine if there is a gap
+                        var difference = startTime.diff(prevEnd, 'minutes');
+                        // Less than 15 minutes we can safely ignore
+                        if (difference > 15) {
+                            self.showGapWarning($entry, prevEnd, startTime);
+                        }
+                    }
+                }
+            });
+
+            // Set the start time and end time relative to the most recent entry
+            var $first = entries.first();
+            var start = $('.start_time', $first);
+            var startTime = $('.start_time', $first).val();
+            console.log('start', start, startTime);
+            var newStart = moment(startTime, 'h:mmA');
+            var newEnd  = TimeManager.getNextTime(newStart);
+            $('#start_time2').val(newStart.format('h:mmA'));
+            $('#end_time2').val(newEnd.format('h:mmA'));
+        },
+        // Delete a time entry row asynchronously
+        deleteEntry: function(deleting) {
+            var self = this;
+            var del = deleting.user + '*' + deleting.id;
+            var url = '/timesheet.php?ts_user=' + deleting.user + '&week_ending=' + deleting.date + '&delete=' + del;
+            $.ajax({
+                type: 'POST',
+                url:  url,
+                dataType: 'html',
+                success: function() {
+                    deleting.elements.map(function(el) {
+                        el.remove();
+                    });
+                    self.refreshTimeEntries();
+                }
+            });
         },
         // Handle the time entry form submission
         submitForm: function($form) {
@@ -289,7 +417,7 @@
                         // Reset the time entry notes field
                         self.elements.$notes.val('');
                         // Update the inline entry html
-                        $('#TSEntryInline').html($result.find('#TSEntryInline').html());
+                        self.refreshTimeEntries($result.find('#TSEntryInline').html());
                     }
                 }
             });
@@ -318,7 +446,10 @@
                         // Let Nerd know their time was saved properly!
                         var $successMessage = $('<div />').text('Entry saved!').addClass('success');
                         self.displayMessage($successMessage);
-                        self.replaceEntryHtml($data);
+                        console.log($data);
+                        this.$currentRow.html($data);
+                        //self.replaceEntryHtml($data);
+                        self.refreshTimeEntries();
                     }
                 }
             });
