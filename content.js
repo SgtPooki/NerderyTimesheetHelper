@@ -1,460 +1,424 @@
-(function ($) {
-    var NRD = {};
+(function($, root, undefined) {
 
-    NRD.TimesheetHelper = {
-        center: function() {
-            this.setDomItems();
-            window.scrollTo(0, this.currentDomItems.$notes.offset().top - ($(window).height()/2));
+    var TimeManager = {
+        increase: function ($element, interval) {
+            var time = $element.val() || moment().format('h:mm A');
+            var increased = moment(time, 'h:mm A').add('minutes', interval || 15);
+            $element.val(increased.format('h:mm A'));
         },
+        decrease: function ($element, interval) {
+            var time = $element.val() || moment().format('h:mm A');
+            var decreased = moment(time, 'h:mm A').subtract('minutes', interval || 15);
+            $element.val(decreased.format('h:mm A'));
+        },
+        getNextTime: function() {
+            return moment().add('minutes', 15 - (now.minutes() % 15));
+        },
+        getNearestTime: function() {
+            var now = moment();
+            var diff = now.minutes() % 15;
+            // If no difference, then we are already at the nearest quarter hour
+            if (diff === 0) return now;
+            // If the difference is greater than half of the interval, go to the next 15 minute mark
+            else if (diff > 7.5) return now.add('minutes', 15 - (now.minutes() % 15));
+            // If the difference is less than half of the interval, go back to the most recent 15 minute mark
+            else return now.subtract('minutes', now.minutes() % 15);
+        },
+        shiftTimes: function ($start, $end) {
+            // Get the current selected start time, or use the nearest time in it's place
+            var start      = $start.val();
+            var startTime  = start ? moment(start) : getNearestTime();
+            // Get the current selected end time, or use the next time in it's place
+            var end        = $end.val();
+            var endTime    = end ? moment(end) : getNextTime();
+            // Calculate the difference between the start and end
+            var diffInMin  = endTime.diff(startTime, 'minutes');
+            var shiftedEnd = endTime.clone().add('minutes', diffInMin);
+            // Set the shifted values
+            $start.val(endTime.format('h:mm A'));
+            $end.val(shiftedEnd.format('h:mm A'));
+            // Update the time remaining
+            var $timeRemaining = $('#orig_time_remaining');
+            $timeRemaining.val(parseInt($timeRemaining.val()) - diffInMin);
+            updateRemainingTime();
+        }
+    };
+
+    var app = {
+
+        // App-wide configurables
+        config: {
+            messageDisplayTime: 1000 * 5,
+        },
+
+        // Selectors for elements used by the extension
         selectors: {
-            entryForm:  '#TSEntryForm',
-            notes:      '[name="notes"]',
-            startTime:  '[name="start_time"]',
-            endTime:    '[name="end_time"]'
+            displayMessageBefore:   '#TSEntryForm',
+            ajaxLoader:             '.ajax_loading_bigdark',
+            entrySave:              '.entry_save',
+            notesEditor:            '.notes textarea',
+            inlineEntry:            '#TSEntryInline',
+            entryForm:              '#TSEntryForm',
+            notes:                  '[name="notes"]',
+            startTime:              '[name="start_time"]',
+            endTime:                '[name="end_time"]'
         },
-        setDomItems: function () {
+
+        // The current set of elements as jQuery objects
+        elements: {
+            $notes:     null,
+            $startTime: null,
+            $endTime:   null
+        },
+
+        // Reset selected DOM elements
+        resetElements: function() {
             $notes      = $(this.selectors.notes);
             $notes      = $notes.length > 1 ? $notes.eq(1) : $notes.eq(0);
             $startTime  = $(this.selectors.startTime);
             $startTime  = $startTime.length > 1 ? $startTime.eq(1) : $startTime.eq(0);
             $endTime    = $(this.selectors.endTime);
             $endTime    = $endTime.length > 1 ? $endTime.eq(1) : $endTime.eq(0);
-            this.currentDomItems = {
-                '$notes':       $notes,     'notes':     $notes[0],
-                '$startTime':   $startTime, 'startTime': $startTime[0],
-                '$endTime':     $endTime,   'endTime':   $endTime[0]
-            };
-            return this.currentDomItems;
-        },
-        _appState: {
-            editingEntries: false
+
+            this.elements.$notes     = $notes;
+            this.elements.$startTime = $startTime;
+            this.elements.$endTime   = $endTime;
         },
 
-        init: function () {
-            this._loadBindings();
-            this._bind();
-        },
+        // Are we currently editing entries?
+        editing: false,
 
-        _loadBindings: function() {
-            // Restores bindings from localStorage
-            _.each(BINDINGS, function(combo, name) {
-                var comboString = localStorage[name];
-                if (comboString) {
-                    BINDINGS[name] = KEYS.comboFromString(comboString);
-                }
-            });
-        },
+        // The current row we are editing
+        $currentRow: '',
+        // The currently selected row index
+        currentRowIndex: -1,
+        // The hash of $currentRow's original contents
+        currentHash: '',
 
-        _bind: function () {
+        // Entry point for the application
+        start: function() {
             var self = this;
-            $(this.selectors.notes).on('keydown', function (e) {
-                var combo = KEYS.getComboForEvent(e);
-                // Set DOM
-                self.setDomItems();
-                // Hilight start/end fields if their associated key combinations are meta
-                if (KEYS.isComboMeta(combo, BINDINGS.inc_start_time) || KEYS.isComboMeta(combo, BINDINGS.dec_start_time)) {
-                    self.currentDomItems.$startTime.css('background', 'yellow');
-                }
-                if (KEYS.isComboMeta(combo, BINDINGS.inc_end_time) || KEYS.isComboMeta(combo, BINDINGS.dec_end_time)) {
-                    self.currentDomItems.$endTime.css('background', 'yellow');
-                }
 
-                // If ENTER is pressed by itself when the editor is not active, submit the time entry
-                if (KEYS.isKeyPressed(KEYS.Enter, combo.keyCode) && (!combo.ctrl || !combo.meta || !combo.shift) && !self.EntryEditor.active) {
-                    e.preventDefault();
-                    // Submit entry form
-                    $(self.selectors.entryForm).submit();
-                    // Exit early
-                    return false;
-                } 
-                else {
-                    // Check for time modifications
-                    var timeUpdated = false;
-                    if (KEYS.isComboPressed(e, BINDINGS.inc_start_time)) {
-                        timeUpdated = true;
-                        self.TimeManipulator.increase(self.currentDomItems.$startTime);
-                    }
-                    if (KEYS.isComboPressed(e, BINDINGS.inc_end_time)) {
-                        timeUpdated = true;
-                        self.TimeManipulator.increase(self.currentDomItems.$endTime);
-                    }
-                    if (KEYS.isComboPressed(e, BINDINGS.dec_start_time)) {
-                        timeUpdated = true;
-                        self.TimeManipulator.increase(self.currentDomItems.$startTime);
-                    }
-                    if (KEYS.isComboPressed(e, BINDINGS.dec_end_time)) {
-                        timeUpdated = true;
-                        self.TimeManipulator.increase(self.currentDomItems.$endTime);
-                    }
-                    // If the time was updated, trigger updateRemainingTime and exit
-                    if (timeUpdated) {
-                        updateRemainingTime(); // Mainframe function.
-                        return false;
-                    }
+            // Restore keybindings from localStorage
+            this.loadBindings();
 
-                    // Then check for navigation
-                    var changedRow = false;
-                    if (KEYS.isComboPressed(e, BINDINGS.inc_row)) {
-                        changedRow = true;
-                        self.EntryEditor.increaseRow();
-                    }
-                    if (KEYS.isComboPressed(e, BINDINGS.dec_row)) {
-                        changedRow = true;
-                        self.EntryEditor.decreaseRow();
-                    }
-                    if (changedRow) {
-                        self.center();
-                        self.currentDomItems.$notes.focus().select();
-                    }
-
-                    // Lastly, look for editor commands
-                    if (KEYS.isKeyPressed(['Enter', 'Esc', 'Delete'], combo.keyCode)) {
-                        e.preventDefault();
-                        console.log('Entry editor is active.');
-
-                        if (KEYS.isKeyPressed(KEYS.Enter, combo.keyCode)) {
-                            // Save text
-                            console.log('ENTER was hit and ENTRY editor is active');
-                            // self.EntryEditor.saveRowIfChanged();
-                        } else if (KEYS.isKeyPressed(KEYS.Esc, combo.keyCode)) {
-                            // Go back to entering a new entry
-                            self.EntryEditor.reset();
-                            self.center();
-                            self.currentDomItems.$notes.focus();
-                        } else if (KEYS.isKeyPressed(KEYS.Delete, combo.keyCode) && combo.alt) {
-                            // Delete the currently highlighted entry. (trigger click on delete button);
-                            self.EntryEditor.unhighlightRow();
-
-                            var $deleteButton = self.EntryEditor.$currentRow.find('.delete_entry');
-                            var paramArray = $deleteButton.attr('href').split('(').splice(1)[0].replace(')', '').replace(', ', ',').replace(/'/gm, '').split(',');
-                            var week       = paramArray[0];
-                            var row        = paramArray[1];
-                            var url        = url = '/timesheet.php?&week_ending=' + week + '&delete=' + row;
-
-                            self.EntryEditor.$currentRow.remove();
-                            self.EntryEditor.highlightRow();
-
-                            $.ajax({
-                                type: "GET",
-                                url: url,
-                                success: function (data) {
-                                    var $data = $(data);
-                                    var $successfullyDeletedRow = jQuery('<div />').text('Entry deleted!').addClass('success');
-                                    self.ui.displayMessage($successfullyDeletedRow);
-                                    self.EntryEditor.replaceEntryHTML($data);
-                                }
-                            });
-                        }
-                    }
-                }
-            }).on('keyup', function (e) {
-                var combo = KEYS.getComboForEvent(e);
-                // Remove hilight from start/end fields when meta is removed
-                if (KEYS.isComboMeta(combo, BINDINGS.inc_start_time) || KEYS.isComboMeta(combo, BINDINGS.dec_start_time)) {
-                    self.currentDomItems.$startTime.css('background', '');
-                }
-                if (KEYS.isComboMeta(combo, BINDINGS.inc_end_time) || KEYS.isComboMeta(combo, BINDINGS.dec_end_time)) {
-                    self.currentDomItems.$endTime.css('background', '');
-                }
-            });
-
-
-            // Capture POST, change form POST to ajax post.
-            $(this.selectors.entryForm).submit(function (e) {
-                // Prevent the normal form submission
+            // Bind keybindings to all keypresses for the page
+            $(root).on('keydown', function(e) { self.handleKeydown(e); });
+            $(root).on('keyup',   function(e) { self.handleKeyup(e); });
+            // Handle submission of the time entry form
+            $(this.selectors.entryForm).on('submit', function(e) { 
                 e.preventDefault();
-
-                var $this    = $(this);
-                var formData = $this.serialize();
-
-                $.ajax({
-                    type: "POST",
-                    url: '',
-                    data: formData,
-                    dataType: 'html',
-                    success: function (data) {
-                        //remove loading gif.
-                        $('.ajax_loading_bigdark').remove();
-
-                        //replace save button
-                        var $btnSave = $('#save_ts_entry_button');
-                        $('.entry_save').append($btnSave);
-
-                        $data = $(data);
-
-                        var $errors = $data.find('.error');
-                        if ($errors.length > 2) {
-                            var $errorMsg = $data.find('.error').first();
-                            NRD.TimesheetHelper.ui.displayMessage($errorMsg);
-                        }
-                        else {
-                            //let Nerd know their time was saved properly!
-                            var $successMsg = $('<div />').text('Entry saved!').addClass('success');
-                            NRD.TimesheetHelper.ui.displayMessage($successMsg);
-                            NRD.TimesheetHelper.TimeManipulator.shiftTimes(self.currentDomItems.$startTime, self.currentDomItems.$endTime);
-                            self.currentDomItems.$notes.val('');
-                            $('#TSEntryInline').html($data.find('#TSEntryInline').html());
-                        }
-                    }
-                });
-
+                self.submitForm($(this)); 
                 return false;
             });
-        } //end bind.
-    };
-
-    NRD.TimesheetHelper.EntryEditor = {
-        // flag that says whether we're currently editing entries or not.
-        active: false,  
-        // keeps track of current index of row for entries
-        entryIndex: -1, 
-        _originalText : '',
-        $currentRow: null,
-        setRow: function($entryRow) {
-            this.active = true;
-            if (this.entryIndex === -1) {
-                $entryRow = null;
-            } else {
-                $entryRow = (typeof $entryRow === 'undefined') ? $('.entry_row').eq(this.entryIndex) : $entryRow;
-                this.$currentRow = $entryRow;
-            }
         },
-        rowToString: function(){
-            var tempString = '';
-            if (this.active) {
-                this.$currentRow.find('input, textarea').each(function(i,o){
-                    tempString = tempString + $(o).val();
+
+        // Restores bindings from localStorage
+        loadBindings: function() {
+            _.each(BINDINGS, function(combo, name) {
+                chrome.extension.sendRequest({method: 'getLocalStorage', key: name}, function(response) {
+                    if (response) {
+                        BINDINGS[name] = KEYS.comboFromString(response);
+                    }
                 });
-            }
+            });
+        },
 
-            return tempString;
-        },
-        hasRowChanged: function(){
-            if (this.active) {
-                return this._originalText === this.rowToString();
-            } else {
-                return false;
+        // Handle all keypresses on the page
+        // NOTE: This needs to remain light and fast, or it could slow down typing
+        handleKeydown: function(e) {
+            var self  = this;
+            var combo = KEYS.getComboForEvent(e);
+            // Fetch current elements
+            this.resetElements();
+            // Hilight start/end fields if their associated key combinations are meta
+            if (KEYS.metaSatisfied(combo, BINDINGS.inc_start_time) || KEYS.metaSatisfied(combo, BINDINGS.dec_start_time)) {
+                this.elements.$startTime.css('background-color', 'yellow');
             }
-        },
-        saveRowIfChanged: function($entryRow) {
-            if (this.active) {
-                if (this.hasRowChanged()) {
-                    return; // data is the same, no need to save.
+            if (KEYS.metaSatisfied(combo, BINDINGS.inc_end_time) || KEYS.metaSatisfied(combo, BINDINGS.dec_end_time)) {
+                this.elements.$endTime.css('background-color', 'yellow');
+            }
+            // If ENTER is pressed by itself when the editor is not active, submit the time entry
+            if (KEYS.isKeyPressed(KEYS.Enter, combo.keyCode) && (!combo.ctrl || !combo.meta || !combo.shift) && !self.editing) {
+                console.log('Submit');
+                e.preventDefault();
+                // Submit entry form
+                $(self.selectors.entryForm).submit();
+                // Exit early
+                return false;
+            } 
+            else {
+                // Check for time modifications
+                var timeUpdated = false;
+                if (KEYS.isComboPressed(combo, BINDINGS.inc_start_time)) {
+                    timeUpdated = true;
+                    TimeManager.increase(self.elements.$startTime);
+                }
+                if (KEYS.isComboPressed(combo, BINDINGS.inc_end_time)) {
+                    timeUpdated = true;
+                    TimeManager.increase(self.elements.$endTime);
+                }
+                if (KEYS.isComboPressed(combo, BINDINGS.dec_start_time)) {
+                    timeUpdated = true;
+                    TimeManager.decrease(self.elements.$startTime);
+                }
+                if (KEYS.isComboPressed(combo, BINDINGS.dec_end_time)) {
+                    timeUpdated = true;
+                    TimeManager.decrease(self.elements.$endTime);
+                }
+                // If the time was updated, trigger updateRemainingTime and exit
+                if (timeUpdated) {
+                    updateRemainingTime(); // Mainframe function.
+                    return false;
                 }
 
-                this.submitAjax();
-            }
-        },
-        reset: function() {
-            this.saveRowIfChanged();
-            this.unhighlightRow();
-            this.entryIndex = -1;
-            this.$currentRow = null;
-            this.active = false;
-            this._originalText = '';
-        },
-        highlightRow: function(){
-            this.setRow();
+                // Then check for navigation
+                var changedRow = false;
+                if (KEYS.isComboPressed(e, BINDINGS.inc_row)) {
+                    changedRow = true;
+                    self.navigateDown();
+                }
+                if (KEYS.isComboPressed(e, BINDINGS.dec_row)) {
+                    changedRow = true;
+                    self.navigateUp();
+                }
+                if (changedRow) {
+                    self.center();
+                    self.elements.$notes.focus().select();
+                }
 
-            if (this.$currentRow !== null) {
-                this.$currentRow.find('.edit_entry').trigger('click');
-                this.$currentRow.find('#notes').focus().select();
-                this._originalText = this.rowToString();
-            }
-        },
-        unhighlightRow: function() {
-            if (this.$currentRow !== null) {
+                // Lastly, look for editor commands
+                if (KEYS.isKeyPressed(['Enter', 'Esc', 'Delete'], combo.keyCode)) {
+                    e.preventDefault();
+                    console.log('Entry editor is active.');
 
-                var tempText = this.$currentRow.find('.inline_text_edit').val();
-                //remove the editing elements of the row.
-                this.$currentRow.find('.cancel_edit').filter(function () {
-                    return $(this).css('display') !== 'none';
-                }).click();
+                    if (KEYS.isKeyPressed(KEYS.Enter, combo.keyCode)) {
+                        // Save text
+                        console.log('ENTER was hit and ENTRY editor is active');
+                        // self.EntryEditor.saveRowIfChanged();
+                    } else if (KEYS.isKeyPressed(KEYS.Esc, combo.keyCode)) {
+                        // Go back to entering a new entry
+                        self.cancelRow(false);
+                        self.center();
+                        self.elements.$notes.focus();
+                    } else if (KEYS.isKeyPressed(KEYS.Delete, combo.keyCode) && combo.alt) {
+                        // Delete the currently highlighted entry. (trigger click on delete button);
+                        self.cancelRow();
 
-                this.$currentRow.find('td.notes').text(tempText);
-            }
-        },
-        increaseRow: function() {
-            this.saveRowIfChanged();
-            if (this.entryIndex + 1 >= this.maxRows()) {
-                this.entryIndex = this.maxRows() - 1;
-            } else {
-                this.unhighlightRow();
-                this.entryIndex++;
-                this.highlightRow();
-            }
-        },
-        decreaseRow: function() {
-            this.entryIndex--;
+                        var $deleteButton = self.$currentRow.find('.delete_entry');
+                        var paramArray = $deleteButton.attr('href').split('(').splice(1)[0].replace(')', '').replace(', ', ',').replace(/'/gm, '').split(',');
+                        var week       = paramArray[0];
+                        var row        = paramArray[1];
+                        var url        = url = '/timesheet.php?&week_ending=' + week + '&delete=' + row;
 
-            if (this.entryIndex > -1) {
-                this.saveRowIfChanged();
-                this.unhighlightRow();
-                this.highlightRow();
-            } else {
-                this.reset();
+                        self.$currentRow.remove();
+                        self.editRow();
+
+                        $.ajax({
+                            type: "GET",
+                            url: url,
+                            success: function (data) {
+                                var $data = $(data);
+                                var $message = $('<div />').text('Entry deleted!').addClass('success');
+                                self.displayMessage($message);
+                                self.resetRow();
+                            }
+                        });
+                    }
+                }
             }
         },
-        maxRows: function() {
-            return $('.entry_row').length;
+
+        // Handle all keyup events (primarily for cleaning up hilights, etc)
+        handleKeyup: function(e) {
+            if (KEYS.isKeyMeta(e.which)) {
+                // Remove hilight from start/end fields when meta is removed
+                if (KEYS.requiredBy(e.which, BINDINGS.inc_start_time) || KEYS.requiredBy(e.which, BINDINGS.dec_start_time)) {
+                    this.elements.$startTime.css('background-color', '');
+                }
+                if (KEYS.requiredBy(e.which, BINDINGS.inc_end_time) || KEYS.requiredBy(e.which, BINDINGS.dec_end_time)) {
+                    this.elements.$endTime.css('background-color', '');
+                }
+            }
         },
-        submitAjax: function() {
-            self = this;
-            url = $.trim(window.location.pathname);
+
+        // Display a message to the user
+        displayMessage: function ($element) {
+            $element.insertBefore(this.selectors.displayMessageBefore);
+            setTimeout($element.remove, this.config.messageDisplayTime);
+        },
+
+        // Center the display on the current row
+        center: function() {
+            this.resetElements();
+            window.scrollTo(0, this.elements.$notes.offset().top - ($(window).height() / 2));
+        },
+        // Handle the time entry form submission
+        submitForm: function($form) {
+            var self = this;
+            $.ajax({
+                type:     'POST',
+                url:      '',
+                data:     $form.serialize(),
+                dataType: 'html',
+                success: function (result) {
+                    // Remove loading gif.
+                    $('.ajax_loading_bigdark').remove();
+
+                    // Replace save button
+                    var $saveBtn = $('#save_ts_entry_button');
+                    $('.entry_save').append($saveBtn);
+
+                    $result = $(result);
+
+                    var $errors = $result.find('.error');
+                    if ($errors.length > 2) {
+                        var $errorMessage = $result.find('.error').first();
+                        self.displayMessage($errorMessage);
+                    }
+                    else {
+                        // Let Nerd know their time was saved properly!
+                        var $successMessage = $('<div />').text('Entry saved!').addClass('success');
+                        self.displayMessage($successMessage);
+                        // Shift the times forward
+                        TimeManager.shiftTimes(self.elements.$startTime, self.elements.$endTime);
+                        // Reset the time entry notes field
+                        self.elements.$notes.val('');
+                        // Update the inline entry html
+                        $('#TSEntryInline').html($result.find('#TSEntryInline').html());
+                    }
+                }
+            });
+        },
+        // Submit the currently edited row's data
+        saveChanges: function () {
+            var self = this;
+            var url  = $.trim(window.location.pathname);
             var data = this.$currentRow.find(':input:not(.unflag_input)').serializeArray();
 
             $.ajax({
-                type: "POST",
-                url: url,
-                data: data,
+                type:     'POST',
                 dataType: 'html',
+                url:      url,
+                data:     data,
                 success: function (data) {
 
                     $data = $(data);
 
                     var $errors = $data.find('.error');
                     if ($errors.length > 2) {
-                        var $errorMsg = $data.find('.error').first();
-                        NRD.TimesheetHelper.ui.displayMessage($errorMsg);
+                        var $errorMessage = $data.find('.error').first();
+                        self.displayMessage($errorMessage);
                     }
                     else {
-                        //let Nerd know their time was saved properly!
-                        var $successMsg = $('<div />').text('Entry saved!').addClass('success');
-                        NRD.TimesheetHelper.ui.displayMessage($successMsg);
-
-                        self.replaceEntryHTML($data);
-
+                        // Let Nerd know their time was saved properly!
+                        var $successMessage = $('<div />').text('Entry saved!').addClass('success');
+                        self.displayMessage($successMessage);
+                        self.replaceEntryHtml($data);
                     }
                 }
             });
         },
-        replaceEntryHTML: function($data) {
-            if (this.entryIndex > -1) {
-                //block all input temporarily.
-                var buffer = ''; // use to collect and enter keys lost while blocking input
-                $(window).live('keydown keyup', function(e) {
-                    e.preventDefault();
-                    return false;
-                });
-                var savedText = this.$currentRow.find('.notes textarea').val();
-                this.unhighlightRow();
-                $('#TSEntryInline').html($data.find('#TSEntryInline').html());
-                this.highlightRow();
+        // Reset the currently selected row's data
+        resetRow: function($data) {
+            if (this.currentRowIndex > -1) {
+                var savedText = this.$currentRow.find(this.selectors.notesEditor).val();
+                this.cancelRow(false);
+                $(this.selectors.inlineEntry).html($data.find(this.selectors.inlineEntry).html());
+                this.editRow();
                 var $textBox = this.$currentRow.find('.notes textarea');
                 $textBox.focus();
-                $textBox.val('');
                 $textBox.val(savedText);
-                NRD.TimesheetHelper.center();
-                $(window).die('keydown keyup');
+                this.center();
             }
-        }
+        },
+        // Generate a hash of the row's contents for change tracking
+        hashRow: function() {
+            if (this.editing) {
+                return this.$currentRow.find('input, textarea').reduce(function(acc, el) {
+                    return acc + $(el).val();
+                }, '');
+            } else return '';
+        },
+        // Enable/Disable input on the current row
+        disableCurrentRow: function() {
+            this.$currentRow.children('input').attr('disabled', 'disabled');
+        },
+        enableCurrentRow: function() {
+            this.$currentRow.children('input').removeAttr('disabled');
+        },
+        // Begin editing the selected row
+        editRow: function($row){
+            this.editing = true;
+            if (this.currentRowIndex === -1) {
+                $row = null;
+            } else {
+                $row = $row || $('.entry_row').eq(this.currentRowIndex);
+                this.$currentRow = $row;
+            }
+
+            if (this.$currentRow) {
+                this.$currentRow.find('.edit_entry').trigger('click');
+                this.$currentRow.find('#notes').focus().select();
+                this.currentHash = this.hashRow();
+            }
+        },
+        // Cancel edits on the selected row
+        cancelRow: function(save) {
+            // If save is not provided, or is truthy, then save changes
+            save = typeof save === 'undefined' ? true : save || false;
+            if (this.$currentRow) {
+                // Save changes if there are any
+                if (save && this.editing && this.currentHash !== this.hashRow()) {
+                    this.saveChanges();
+                }
+
+                // Pull inline editor changes over to readonly display
+                var tempText = this.$currentRow.find('.inline_text_edit').val();
+                // Cancel editing
+                this.$currentRow.find('.cancel_edit').trigger('click');
+                // Set the notes text with text from the inline editor
+                this.$currentRow.find('td.notes').text(tempText);
+
+                // Reset internal state
+                this.editing = false;
+                this.currentRowIndex = -1;
+                this.currentHash = '';
+                this.$currentRow = null;
+            }
+        },
+        // Row navigation
+        navigateDown: function() {
+            // Cancel current edits
+            this.cancelRow();
+
+            var maxRows = $('.entry_row').length;
+            if (this.currentRowIndex + 1 >= maxRows) {
+                this.currentRowIndex = maxRows - 1;
+            } else {
+                this.currentRowIndex++;
+                this.editRow();
+            }
+        },
+        navigateUp: function() {
+            // Cancel current edits
+            this.cancelRow();
+
+            if (this.currentRowIndex - 1 < 0) {
+                this.currentRowIndex = 0;
+            } else {
+                this.currentRowIndex--;
+                this.editRow();
+            }
+        },
+
     };
 
-    NRD.TimesheetHelper.TimeManipulator = {
-        increase: function ($element, value) {
-            value = (typeof value !== 'undefined') ? value : 15;
-            var currentValue = this._getElementTime($element);
-            var newValue     = this.getNewTime(currentValue, value);
-            $element.val(newValue);
-        },
-        decrease: function ($element, value) {
-            value = (typeof value !== 'undefined') ? value * -1 : -15;
-            var currentValue = this._getElementTime($element);
-            var newValue     = this.getNewTime(currentValue, value);
-            $element.val(newValue);
-        },
-        _getElementTime: function ($element) {
-            return Date.parse($element.val());
-        },
-        getNewTime: function (baseValue, additionalValue) {
-            var newVal = new Date(baseValue.getTime() + (additionalValue * 60000));
-            return this.formatTime(newVal);
-        },
-        formatTime: function (value) {
-            return value.toString('h:mm tt');
-        },
-        shiftTimes: function ($element1, $element2) {
-            var time = $element2.val();
-            var endTime = Date.parse(time);
-
-            var startTime = Date.parse($element1.val());
-
-            var timeDifference = (endTime - startTime) / 1000 / 60;
-            var newEndTime = new Date(endTime.getTime() + timeDifference * 60000);
-
-            var amOrPm = '';
-
-            var endHour = newEndTime.getHours();
-            var endMin = newEndTime.getMinutes();
-
-            var newEndTimeString = endHour + ':' + ((endMin === 0) ? '00' : endMin) + ' ' + newEndTime.toString('tt');
-            var newEndTimeString = this.formatTime(newEndTime); //.toString('h:mm tt');
+    if (!BINDINGS || !KEYS) {
+        console.log('Unable to load keybindings.js. Timesheet helper is unable to continue.');
+    } else {
+        app.start();
+    }
 
 
-            //empty timesheet input fields.
-            $element1.val($element2.val());
-            $element2.val(newEndTimeString);
-
-            $('#orig_time_remaining').val($('#orig_time_remaining').val() - (timeDifference / 60));
-            updateRemainingTime();
-        }
-    };
-
-    NRD.TimesheetHelper.ajaxHelper = {
-        submit: function (url, data, success) {
-            var URL      = (typeof url === 'undefined') ? '' : url;
-            var postData = (typeof data === 'undefined') ? '' : data;
-
-            $.ajax({
-                type: "POST",
-                url: URL,
-                data: postData,
-                dataType: 'html',
-                success: function (data) {
-
-                    //remove loading gif.
-                    $('.ajax_loading_bigdark').remove();
-
-                    //replace save button
-                    $('.entry_save').append($btnSave);
-
-                    $data = $(data);
-
-                    var $errors = $data.find('.error');
-                    if ($errors.length > 2) {
-                        var $errorMsg = $data.find('.error').first();
-                        NRD.TimesheetHelper.ui.displayMessage($errorMsg);
-                    }
-                    else {
-                        //let Nerd know their time was saved properly!
-                        var $successMsg = $('<div />').text('Entry saved!').addClass('success');
-                        NRD.TimesheetHelper.ui.displayMessage($successMsg);
-
-                        NRD.TimesheetHelper.TimeManipulator.shiftTimes();
-
-                        $('#notes').val('');
-                        $('#TSEntryInline').html($data.find('#TSEntryInline').html());
-
-
-                    }
-                },
-            });
-        }
-    };
-
-    NRD.TimesheetHelper.ui = {
-        _config: {
-            messageDisplayTime: 1000 * 5,
-            beforeSelector: '#TSEntryForm'
-        },
-        displayMessage: function ($element) {
-            $element.insertBefore(this._config.beforeSelector);
-            setTimeout(function () {
-                $element.remove()
-            }, this._config.messageDisplayTime);
-        }
-    };
-
-    NRD.TimesheetHelper.init();
-
-})(jQuery);
+})(jQuery, window);

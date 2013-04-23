@@ -71,7 +71,8 @@ var KEYS = {
     'SHIFT': 16,
     'CTRL': 17,
     'ALT': 18,
-    'META': 93,
+    'META': 91,
+    'META_RIGHT': 93,
     'Caps Lock': 20,
     'Esc': 27,
     'Spacebar': 32,
@@ -138,41 +139,29 @@ var KEYS = {
         }
     },
     // Determine if the provided combo was pressed
-    isComboPressed: function (e, combo) {
-        if (!e || !combo) return false;
+    isComboPressed: function (combo, binding) {
+        if (!combo || !binding) return false;
 
         // If the key itself is the same, we just have to ensure the expected meta key is pressed
-        if (combo.keyCode === e.which) {
-            // Check each meta key in the combo to confirm it's pressed
-            if (combo.shift) {
-                if (!e.shiftKey) return false;
-            }
-            if (combo.alt) {
-                if (!e.altKey) return false;
-            }
-            if (combo.meta) {
-                if (!e.metaKey) return false;
-            }
-            if (combo.ctrl) {
-                if (!e.ctrlKey) return false;
-            }
-        }
-
-        // Otherwise...
-        return false;
+        if (binding.keyCode !== combo.keyCode) return false;
+        if (binding.shift && !combo.shift) return false;
+        if (binding.alt && !combo.alt) return false;
+        if (binding.ctrl && !combo.ctrl) return false;
+        if (binding.meta && !combo.meta) return false;
+        else return true;
     },
-    // Return true if all of a combo's meta keys are depressed
-    isComboMeta: function(currentCombo, combo) {
-        var pressed = true;
-        if (combo.ctrl && !currentCombo.ctrl)
-            pressed = false;
-        if (combo.shift && !currentCombo.shift)
-            pressed = false;
-        if (combo.alt && !currentCombo.alt)
-            pressed = false;
-        if (combo.meta && !currentCombo.meta)
-            pressed = false;
-        return pressed;
+    // Return true if the provided key is a meta key
+    isKeyMeta: function(keyCode) {
+        switch (keyCode) {
+            case this.CTRL:
+            case this.SHIFT:
+            case this.ALT:
+            case this.META:
+            case this.META_RIGHT:
+                return true;
+            default:
+                return false;
+        }
     },
     // Return an empty combo object
     getEmptyCombo: function() {
@@ -226,6 +215,32 @@ var KEYS = {
         combo.shift   = parts.indexOf('SHIFT') > -1;
         combo.meta    = parts.indexOf('META') > -1;
         return combo;
+    },
+    // Check if a key combo requires the presence of the provided key
+    requiredBy: function(keyCode, combo) {
+        if (combo.keyCode === keyCode)
+            return true;
+        else if (combo.ctrl && keyCode === this.CTRL)
+            return true;
+        else if (combo.shift && keyCode === this.SHIFT)
+            return true;
+        else if (combo.alt && keyCode === this.ALT)
+            return true;
+        else if (combo.meta && (keyCode === this.META || keyCode === this.META_RIGHT))
+            return true;
+        else return false;
+    },
+    // Check to see if the provided combo satisfies all the meta requirements for the provided binding combo
+    metaSatisfied: function(currentCombo, binding) {
+        if (binding.ctrl && !currentCombo.ctrl)
+            return false;
+        else if (binding.shift && !currentCombo.shift)
+            return false;
+        else if (binding.alt && !currentCombo.alt)
+            return false;
+        else if (binding.meta && !currentCombo.meta)
+            return false;
+        else return true;
     }
 };
 
