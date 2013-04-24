@@ -5,6 +5,7 @@
         var timeout = null;
         timeout = setTimeout(function() { 
             func(); 
+            clearTimeout(timeout);
             timeout = null; 
         }, time || 100);
     }
