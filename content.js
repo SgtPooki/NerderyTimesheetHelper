@@ -87,9 +87,7 @@
             var duration          = moment.duration(endTime.diff(startTime));
             var hours             = duration.hours();
             var hourFraction      = parseFloat((duration.minutes() / 60).toPrecision(2));
-            var total = hours + hourFraction;
-            console.log('diffasfractional', duration, hours, hourFraction, total);
-            return total;
+            return hours + hourFraction;
         }
     };
 
