@@ -44,26 +44,32 @@
             // If the difference is less than half of the interval, go back to the most recent 15 minute mark
             else return now.subtract('minutes', now.minutes() % 15);
         },
-        shiftTimes: function ($start, $end) {
-            // Get the current selected start time, or use the nearest time in it's place
-            var start      = $start.val();
-            var startTime  = start ? moment(start, 'h:mm A') : getNearestTime();
-            // Get the current selected end time, or use the next time in it's place
-            var end        = $end.val();
-            var endTime    = end ? moment(end, 'h:mm A') : getNextTime();
+        shiftTimes: function (startTime, endTime) {
+            // If start/end times are provided, use them
+            // Otherwise, use the currently selected start time, or
+            // the nearest time block from now as a final fallback
+            if (startTime === undefined) {
+                var start  = app.elements.$startTime.val();
+                startTime  = start ? moment(start, 'h:mm A') : getNearestTime();
+            }
+            if (endTime === undefined) {
+                // Get the current selected end time, or use the next time in it's place
+                var end = app.elements.$endTime.val();
+                endTime = end ? moment(end, 'h:mm A') : getNextTime();
+            }
             // Calculate the difference between the start and end
             var diffInMin  = endTime.diff(startTime, 'minutes');
             var shiftedEnd = endTime.clone().add('minutes', diffInMin);
             // Set the shifted values
-            $start.val(endTime.format('h:mm A'));
-            $end.val(shiftedEnd.format('h:mm A'));
+            app.elements.$startTime.val(endTime.format('h:mm A'));
+            app.elements.$endTime.val(shiftedEnd.format('h:mm A'));
             // Update the time remaining
-            var $timeRemaining  = $('#orig_time_remaining');
+            var $timeRemaining    = $('#orig_time_remaining');
             var origTimeRemaining = parseFloat($timeRemaining.val());
-            var duration        = moment.duration(origTimeRemaining * 60 - diffInMin, 'minutes');
-            var hours           = duration.hours();
-            var hourFraction    = parseFloat((duration.minutes() / 60).toPrecision(2));
-            var totalDiff       = hours + hourFraction;
+            var duration          = moment.duration(origTimeRemaining * 60 - diffInMin, 'minutes');
+            var hours             = duration.hours();
+            var hourFraction      = parseFloat((duration.minutes() / 60).toPrecision(2));
+            var totalDiff         = hours + hourFraction;
             // Calculate the new time remaining
             var newTimeRemaining  = origTimeRemaining - totalDiff;
             $timeRemaining.val(newTimeRemaining);
@@ -358,15 +364,15 @@
                 }
             });
 
-            // Set the start time and end time relative to the most recent entry
-            var $first = entries.first();
-            var start = $('.start_time', $first);
-            var startTime = $('.start_time', $first).val();
-            console.log('start', start, startTime);
-            var newStart = moment(startTime, 'h:mmA');
-            var newEnd  = TimeManager.getNextTime(newStart);
-            $('#start_time2').val(newStart.format('h:mmA'));
-            $('#end_time2').val(newEnd.format('h:mmA'));
+            // If deleting, then set the start/end time relative to the most recent entry
+            if (deleting) {
+                var $mostRecentEntry    = entries.first();
+                var mostRecentStartTime = $('.start_time', $mostRecentEntry).text();
+                var mostRecentEndTime   = $('.end_time', $mostRecentEntry).text();
+                mostRecentStartTime     = moment(mostRecentStartTime, 'h:mmA');
+                mostRecentEndTime       = moment(mostRecentEndTime, 'h:mmA');
+                TimeManager.shiftTimes(mostRecentStartTime, mostRecentEndTime);
+            }
         },
         // Delete a time entry row asynchronously
         deleteEntry: function(deleting) {
@@ -413,7 +419,7 @@
                         var $successMessage = $('<div />').text('Entry saved!').addClass('success');
                         self.displayMessage($successMessage);
                         // Shift the times forward
-                        TimeManager.shiftTimes(self.elements.$startTime, self.elements.$endTime);
+                        TimeManager.shiftTimes();
                         // Reset the time entry notes field
                         self.elements.$notes.val('');
                         // Update the inline entry html
