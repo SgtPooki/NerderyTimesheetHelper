@@ -60,6 +60,10 @@
             // Calculate the difference between the start and end
             var diffInMin  = endTime.diff(startTime, 'minutes');
             var shiftedEnd = endTime.clone().add('minutes', diffInMin);
+            // We've rolled over to the next day
+            if (shiftedEnd.isBefore(endTime)) {
+                shiftedEnd.add(1, 'days');
+            }
             // Set the shifted values
             app.elements.$startTime.val(endTime.format('h:mm A'));
             app.elements.$endTime.val(shiftedEnd.format('h:mm A'));
@@ -80,10 +84,12 @@
         },
         // Gets the difference between a start and end time as XX.XX hours, i.e. 12.75
         getDiffAsFractionalTime: function(startTime, endTime) {
-            var duration          = moment.duration(startTime.diff(endTime));
+            var duration          = moment.duration(endTime.diff(startTime));
             var hours             = duration.hours();
             var hourFraction      = parseFloat((duration.minutes() / 60).toPrecision(2));
-            return hours + hourFraction;
+            var total = hours + hourFraction;
+            console.log('diffasfractional', duration, hours, hourFraction, total);
+            return total;
         }
     };
 
@@ -388,6 +394,11 @@
                 var startTime = moment($('.start_time', $entry).text(), 'h:mmA');
                 var endTime   = moment($('.end_time', $entry).text(), 'h:mmA');
 
+                // Roll over to the next day if the end is before the start
+                if (endTime.isBefore(startTime)) {
+                    endTime.add(1, 'days');
+                }
+
                 // Increment total recorded hours
                 totalHours += TimeManager.getDiffAsFractionalTime(startTime, endTime);
 
@@ -424,6 +435,10 @@
                 var $entry    = $(entry);
                 var startTime = moment($('.start_time', $entry).text(), 'h:mmA');
                 var endTime   = moment($('.end_time', $entry).text(), 'h:mmA');
+                // Roll over to the next day if the end is before the start
+                if (endTime.isBefore(startTime)) {
+                    endTime.add(1, 'days');
+                }
 
                 // Calculate the duration and increment totalHours
                 todaysHours += TimeManager.getDiffAsFractionalTime(startTime, endTime);
@@ -640,7 +655,12 @@
             // Get the start and end times as moments
             var startTime         = TimeManager.getTimeFromElement(this.elements.$startTime);
             var endTime           = TimeManager.getTimeFromElement(this.elements.$endTime);
+            // Roll over to the next day if the end is 'before' the start
+            if (endTime.isBefore(startTime)) {
+                endTime.add(1, 'days');
+            }
             // Calculate the new time remaining
+            console.log('updateRemaining', startTime, endTime, origTimeRemaining);
             var newTimeRemaining  = origTimeRemaining - TimeManager.getDiffAsFractionalTime(startTime, endTime);
             // Set Work Order Information to the fractional difference
             $woInfoRemaining.text(newTimeRemaining);
