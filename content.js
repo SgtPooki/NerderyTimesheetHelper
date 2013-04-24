@@ -140,13 +140,13 @@
             $(root).on('keydown', function(e) { self.handleKeydown(e); });
             $(root).on('keyup',   function(e) { self.handleKeyup(e); });
             // Handle submission of the time entry form
-            $(this.selectors.entryForm).on('submit', function(e) { 
+            $(root.document).on('submit', this.selectors.entryForm, function (e) {
                 e.preventDefault();
                 self.submitForm($(this)); 
                 return false;
             });
             // Intercept deletes in order to perform them asynchronously
-            $(this.selectors.deleteRow).on('click', function(e) {
+            $(root.document).on('click', this.selectors.deleteRow, function (e) {
                 e.stopImmediatePropagation();
 
                 var re       = /deleteRow\('(.+)', '([\w]+)\*([\d\w]+)'\)/;
