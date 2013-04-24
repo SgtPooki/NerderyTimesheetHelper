@@ -5,5 +5,6 @@ This is the Nerdery Timesheet Helper Chrome Extension, originally developed by R
 # TODO
 
 - Add options page with keybinding config (DONE)
-- Refactor content script to use keybindings (IN PROGRESS)
-- Bug fixes as new bugs are reported
+- Refactor content script to use keybindings (DONE)
+- Fix entry navigation
+- Add keybinding to delete most recent entry
