@@ -66,14 +66,24 @@
             // Update the time remaining
             var $timeRemaining    = $('#orig_time_remaining');
             var origTimeRemaining = parseFloat($timeRemaining.val());
-            var duration          = moment.duration(origTimeRemaining * 60 - diffInMin, 'minutes');
-            var hours             = duration.hours();
-            var hourFraction      = parseFloat((duration.minutes() / 60).toPrecision(2));
-            var totalDiff         = hours + hourFraction;
             // Calculate the new time remaining
-            var newTimeRemaining  = origTimeRemaining - totalDiff;
+            var newTimeRemaining  = origTimeRemaining - this.getMinutesAsFractionalTime(origTimeRemaining * 60 - diffInMin);
             $timeRemaining.val(newTimeRemaining);
             app.updateRemainingTime();
+        },
+        // Gets a duration in minutes as XX.XX hours, i.e. 12.75
+        getMinutesAsFractionalTime: function(minutes) {
+            var duration          = moment.duration(minutes, 'minutes');
+            var hours             = duration.hours();
+            var hourFraction      = parseFloat((duration.minutes() / 60).toPrecision(2));
+            return hours + hourFraction;
+        },
+        // Gets the difference between a start and end time as XX.XX hours, i.e. 12.75
+        getDiffAsFractionalTime: function(startTime, endTime) {
+            var duration          = moment.duration(startTime.diff(endTime));
+            var hours             = duration.hours();
+            var hourFraction      = parseFloat((duration.minutes() / 60).toPrecision(2));
+            return hours + hourFraction;
         }
     };
 
@@ -369,12 +379,17 @@
             this.resetElements();
 
             var entries = $('.entry_row');
+            // Track total recorded hours
+            var totalHours = 0.0;
             // Starts at the most recent and goes backwards through time
             _.each(entries, function(entry, i) {
                 var $entry = $(entry);
 
                 var startTime = moment($('.start_time', $entry).text(), 'h:mmA');
                 var endTime   = moment($('.end_time', $entry).text(), 'h:mmA');
+
+                // Increment total recorded hours
+                totalHours += TimeManager.getDiffAsFractionalTime(startTime, endTime);
 
                 // We don't need to do anything if this is the last entry
                 if (i + 1 < entries.length) {
@@ -411,13 +426,17 @@
                 var endTime   = moment($('.end_time', $entry).text(), 'h:mmA');
 
                 // Calculate the duration and increment totalHours
-                var duration          = moment.duration(startTime.diff(endTime));
-                var hours             = duration.hours();
-                var hourFraction      = parseFloat((duration.minutes() / 60).toPrecision(2));
-                var totalDiff         = hours + hourFraction;
-                todaysHours += totalDiff;
+                todaysHours += TimeManager.getDiffAsFractionalTime(startTime, endTime);
             });
             $('#time_entries thead').first().children('.day_of_week').find('span').text(todaysHours + ' hours');
+
+            // Update recorded time
+            var $recordedInfo = $('#info_bar').find('.ts_recorded'),
+                $headline     = $recordedInfo.find('.ts_headline'),
+                $caption      = $recordedInfo.find('.caption'),
+                contents      = $recordedInfo.contents();
+            contents.slice(contents.index($headline) + 1, contents.index($caption)).remove();
+            $headline.after(totalHours);
 
             // If deleting, then set the start/end time relative to the most recent entry
             if (deleting) {
@@ -621,14 +640,8 @@
             // Get the start and end times as moments
             var startTime         = TimeManager.getTimeFromElement(this.elements.$startTime);
             var endTime           = TimeManager.getTimeFromElement(this.elements.$endTime);
-            // Calculate the duration of the difference between start and end time
-            var duration          = moment.duration(endTime.diff(startTime));
-            // Determine the hours, fraction of an hour, and the total in hours, of the duration
-            var hours             = duration.hours();
-            var hourFraction      = parseFloat((duration.minutes() / 60).toPrecision(2));
-            var totalDiff         = hours + hourFraction;
             // Calculate the new time remaining
-            var newTimeRemaining  = origTimeRemaining - totalDiff;
+            var newTimeRemaining  = origTimeRemaining - TimeManager.getDiffAsFractionalTime(startTime, endTime);
             // Set Work Order Information to the fractional difference
             $woInfoRemaining.text(newTimeRemaining);
             // Set Work Order table Remaining column to the humanized difference
