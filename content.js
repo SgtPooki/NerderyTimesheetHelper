@@ -136,6 +136,9 @@
             // Restore keybindings from localStorage
             this.loadBindings();
 
+            // Bind DOM elements
+            this.resetElements();
+
             // Bind keybindings to all keypresses for the page
             $(root).on('keydown', function(e) { self.handleKeydown(e); });
             $(root).on('keyup',   function(e) { self.handleKeyup(e); });
@@ -170,6 +173,37 @@
 
                 return false;
             });
+
+            this.resetTimeEntry();
+        },
+
+        // Bind the start/end and project fields based on the most recent entry, and focus on the notes field
+        resetTimeEntry: function() {
+            var entries             = $('.entry_row');
+            var $mostRecentEntry    = entries.first();
+            var mostRecentStartTime = $('.start_time', $mostRecentEntry).text();
+            var mostRecentEndTime   = $('.end_time', $mostRecentEntry).text();
+            mostRecentStartTime     = moment(mostRecentStartTime, 'h:mmA');
+            mostRecentEndTime       = moment(mostRecentEndTime, 'h:mmA');
+            TimeManager.shiftTimes(mostRecentStartTime, mostRecentEndTime);
+
+            // Current entry work order elements
+            var $workOrder = $('#time_entry_table').find('.entry_wo');
+            var $billTo    = $('#bill_to', $workOrder);
+            var $client    = $('#client',  $workOrder);
+            var $project   = $('#project', $workOrder);
+
+            // Most recent entry work order values
+            var lastClient  = $mostRecentEntry.find('.client a').text();
+            var lastProject = $mostRecentEntry.find('.project a').text();
+
+            // Update work order
+            $billTo.val(lastClient + ' ' + lastProject);
+            $client.val(lastClient);
+            $project.val(lastProject);
+
+            // Focus on the notes field
+            $('#time_entry_table').find('#notes').focus();
         },
 
         // Restores bindings from localStorage
@@ -315,7 +349,7 @@
             var day = moment().format('dddd');
             var timeRange = startTime.format('h:mmA') + ' to ' + endTime.format('h:mmA');
             var params = '\'' + startTime.format('h:mmA') + '\', \'' + endTime.format('h:mmA') + '\', \'' + day + '\'';
-            var warning = $('<td colspan="8">' + timeRange + ':Take a break? Cool. Otherwise, <a href="javascript:fillTimesheetGap(' + params + ')">fill your timesheet</a>.</td>');
+            var warning = $('<tr class="gap_detection"><td colspan="8">' + timeRange + ':Take a break? Cool. Otherwise, <a href="javascript:fillTimesheetGap(' + params + ')">fill your timesheet</a>.</td></tr>');
             $row.after(warning);
         },
         // Center the display on the current row
@@ -336,7 +370,7 @@
 
             var entries = $('.entry_row');
             // Starts at the most recent and goes backwards through time
-            _.each(entries, function(i, entry) {
+            _.each(entries, function(entry, i) {
                 var $entry = $(entry);
 
                 var startTime = moment($('.start_time', $entry).text(), 'h:mmA');
@@ -345,8 +379,8 @@
                 // We don't need to do anything if this is the last entry
                 if (i + 1 < entries.length) {
                     var $previousEntry = $(entries[i + 1]);
-                    var prevStart = moment($('.start_time', $previousEntry), 'h:mmA');
-                    var prevEnd   = moment($('.end_time', $previousEntry), 'h:mmA');
+                    var prevStart = moment($('.start_time', $previousEntry).text(), 'h:mmA');
+                    var prevEnd   = moment($('.end_time', $previousEntry).text(), 'h:mmA');
 
                     var overlapped = false;
                     if (startTime.isAfter(prevStart) && startTime.isBefore(prevEnd))
@@ -355,18 +389,35 @@
                         overlapped = true;
 
                     // Cannot be overlapped and gapped at the same time
-                    if (overlapped) {
+                    if (overlapped && !$entry.next().hasClass('.gap_detection')) {
                         self.showOverlapWarning($entry);
                     } else {
                         // Determine if there is a gap
                         var difference = startTime.diff(prevEnd, 'minutes');
                         // Less than 15 minutes we can safely ignore
-                        if (difference > 15) {
+                        if (difference > 15 && !$entry.next().hasClass('.gap_detection')) {
                             self.showGapWarning($entry, prevEnd, startTime);
                         }
                     }
                 }
             });
+
+            // Update total hours in time entry table for the current day
+            var todaysHours    = 0.0;
+            var $todaysEntries = $('#time_entries thead').first();
+            _.each($todaysEntries.next().find('.entry_row'), function(entry) {
+                var $entry    = $(entry);
+                var startTime = moment($('.start_time', $entry).text(), 'h:mmA');
+                var endTime   = moment($('.end_time', $entry).text(), 'h:mmA');
+
+                // Calculate the duration and increment totalHours
+                var duration          = moment.duration(startTime.diff(endTime));
+                var hours             = duration.hours();
+                var hourFraction      = parseFloat((duration.minutes() / 60).toPrecision(2));
+                var totalDiff         = hours + hourFraction;
+                todaysHours += totalDiff;
+            });
+            $('#time_entries thead').first().children('.day_of_week').find('span').text(todaysHours + ' hours');
 
             // If deleting, then set the start/end time relative to the most recent entry
             if (deleting) {
