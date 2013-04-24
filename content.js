@@ -323,12 +323,16 @@
             this.resetElements();
             window.scrollTo(0, this.elements.$notes.offset().top - ($(window).height() / 2));
         },
-        refreshTimeEntries: function(html) {
+        refreshTimeEntries: function(html, deleting) {
             var self = this;
+
+            deleting = deleting || false;
 
             if (html) {
                 $('#TSEntryInline').html(html);
             }
+
+            this.resetElements();
 
             var entries = $('.entry_row');
             // Starts at the most recent and goes backwards through time
@@ -387,7 +391,7 @@
                     deleting.elements.map(function(el) {
                         el.remove();
                     });
-                    self.refreshTimeEntries();
+                    self.refreshTimeEntries(null, true);
                 }
             });
         },
