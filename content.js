@@ -107,12 +107,12 @@
 
         // Reset selected DOM elements
         resetElements: function() {
-            $notes      = $(this.selectors.notes);
-            $notes      = $notes.length > 1 ? $notes.eq(1) : $notes.eq(0);
-            $startTime  = $(this.selectors.startTime);
-            $startTime  = $startTime.length > 1 ? $startTime.eq(1) : $startTime.eq(0);
-            $endTime    = $(this.selectors.endTime);
-            $endTime    = $endTime.length > 1 ? $endTime.eq(1) : $endTime.eq(0);
+            var $notes      = $(this.selectors.notes);
+            $notes          = $notes.length > 1 ? $notes.eq(1) : $notes.eq(0);
+            var $startTime  = $(this.selectors.startTime);
+            $startTime      = $startTime.length > 1 ? $startTime.eq(1) : $startTime.eq(0);
+            var $endTime    = $(this.selectors.endTime);
+            $endTime        = $endTime.length > 1 ? $endTime.eq(1) : $endTime.eq(0);
 
             this.elements.$notes     = $notes;
             this.elements.$startTime = $startTime;
