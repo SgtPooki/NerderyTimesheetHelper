@@ -226,7 +226,7 @@
                 }
                 // If the time was updated, trigger updateRemainingTime and exit
                 if (timeUpdated) {
-                    this.updateRemainingTime(); // Mainframe function.
+                    this.updateRemainingTime();
                     return false;
                 }
 
