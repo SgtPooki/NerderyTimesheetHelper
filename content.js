@@ -68,13 +68,6 @@
             // Set the shifted values
             app.elements.$startTime.val(endTime.format('h:mm A'));
             app.elements.$endTime.val(shiftedEnd.format('h:mm A'));
-            // Update the time remaining
-            var $timeRemaining    = $('#orig_time_remaining');
-            var origTimeRemaining = parseFloat($timeRemaining.val());
-            // Calculate the new time remaining
-            var newTimeRemaining  = origTimeRemaining - this.getMinutesAsFractionalTime(origTimeRemaining * 60 - diffInMin);
-            $timeRemaining.val(newTimeRemaining);
-            app.updateRemainingTime();
         },
         // Gets a duration in minutes as XX.XX hours, i.e. 12.75
         getMinutesAsFractionalTime: function(minutes) {
@@ -89,6 +82,120 @@
             var hours             = duration.hours();
             var hourFraction      = parseFloat((duration.minutes() / 60).toPrecision(2));
             return hours + hourFraction;
+        },
+        setTotalRecordedTime: function(hours) {
+            var $recordedInfo = $('#info_bar').find('.ts_recorded'),
+                $headline     = $recordedInfo.find('.ts_headline'),
+                $caption      = $recordedInfo.find('.caption'),
+                contents      = $recordedInfo.contents();
+            contents.slice(contents.index($headline) + 1, contents.index($caption)).remove();
+            $headline.after(hours);
+        },
+        getProjectRemainingTime: function(project) {
+            var $woTableRemaining = $('#' + project).prevUntil('tr').filter(function(i, el) {
+                return $(el).html().indexOf('hours') > -1;
+            });
+            return parseFloat(_.first($woTableRemaining.text().split(' ')));
+        },
+        setProjectRemainingTime: function(project, remaining) {
+            var $woTableRemaining = $('#' + project).prevUntil('tr').filter(function(i, el) {
+                return $(el).html().indexOf('hours') > -1;
+            });
+            $woTableRemaining.text(remaining + ' hours');
+        },
+        getTimeEntries: function() {
+            var entries = $('.entry_row');
+            return entries;
+        },
+        getMostRecentEntry: function(entries) {
+            entries = entries || this.getTimeEntries();
+            return $(_.first(entries));
+        },
+        getMostRecentStartTime: function(entry) {
+            entry = entry || this.getMostRecentEntry();
+            var mostRecentStartTime = $('.start_time', entry).text();
+            return moment(mostRecentStartTime, 'h:mmA');
+        },
+        getMostRecentEndTime: function(entry) {
+            entry = entry || this.getMostRecentEntry();
+            var mostRecentEndTime   = $('.end_time', entry).text();
+            return moment(mostRecentEndTime, 'h:mmA');
+        },
+        incrementRemainingProjectTime: function(project, amount) {
+            project = project || $('#project').val();
+
+            // Get the original time remaining value
+            var origTimeRemaining = this.getProjectRemainingTime(project);
+            var newTimeRemaining = origTimeRemaining + amount;
+            this.setProjectRemainingTime(project, newTimeRemaining);
+        },
+        decrementRemainingProjectTime: function (project, amount) {
+            project = project || $('#project').val();
+
+            var origTimeRemaining = this.getProjectRemainingTime(project);
+            var newTimeRemaining = origTimeRemaining - amount;
+            this.setProjectRemainingTime(project, newTimeRemaining);
+        },
+        incrementRemainingWorkOrderTime: function(project, amount) {
+            project = project || $('#project').val();
+
+            var origTimeRemaining = this.getProjectRemainingTime(project);
+            var $woInfoRemaining  = $('#time_entry_table #time_remaining');
+            $woInfoRemaining.text(origTimeRemaining + amount);
+        },
+        decrementRemainingWorkOrderTime: function(project, amount) {
+            project = project || $('#project').val();
+
+            var origTimeRemaining = this.getProjectRemainingTime(project);
+            var $woInfoRemaining  = $('#time_entry_table #time_remaining');
+            $woInfoRemaining.text(origTimeRemaining - amount);
+        },
+        predictProjectTimeDeduction: function(project) {
+            project = project || $('#project').val();
+            // Get the start and end times as moments
+            var startTime         = this.getTimeFromElement(app.elements.$startTime);
+            var endTime           = this.getTimeFromElement(app.elements.$endTime);
+            // Roll over to the next day if the end is 'before' the start
+            if (endTime.isBefore(startTime)) {
+                endTime.add(1, 'days');
+            }
+            var diff = this.getDiffAsFractionalTime(startTime, endTime);
+            return diff;
+        },
+        areTimesOverlapped: function(prevStart, prevEnd, startTime, endTime) {
+            if (startTime.isAfter(prevStart) && startTime.isBefore(prevEnd))
+                return true;
+            else if (startTime.isBefore(prevStart) && endTime.isAfter(prevStart))
+                return true;
+            else return false;
+        },
+        sumAllEntries: function(entries, filter) {
+            entries = entries || this.getTimeEntries();
+            return this._sumEntries(entries, filter);
+        },
+        sumTodaysEntries: function(entries, filter) {
+            entries = entries || $('#time_entries thead').first().next().find('.entry_row');
+            return this._sumEntries(entries, filter);
+        },
+        _sumEntries: function(entries, filter) {
+            filter  = filter || function(entry) { return true; };
+
+            var self  = this;
+            var total = 0.0;
+            entries = _.filter(entries, filter);
+            _.each(entries, function(entry) {
+                var $entry    = $(entry);
+                var startTime = self.getMostRecentStartTime($entry);
+                var endTime   = self.getMostRecentEndTime($entry);
+                // Roll over to the next day if the end is before the start
+                if (endTime.isBefore(startTime)) {
+                    endTime.add(1, 'days');
+                }
+
+                // Calculate the duration and increment totalHours
+                total += self.getDiffAsFractionalTime(startTime, endTime);
+            });
+            return total;
         }
     };
 
@@ -194,12 +301,9 @@
 
         // Bind the start/end and project fields based on the most recent entry, and focus on the notes field
         resetTimeEntry: function() {
-            var entries             = $('.entry_row');
-            var $mostRecentEntry    = entries.first();
-            var mostRecentStartTime = $('.start_time', $mostRecentEntry).text();
-            var mostRecentEndTime   = $('.end_time', $mostRecentEntry).text();
-            mostRecentStartTime     = moment(mostRecentStartTime, 'h:mmA');
-            mostRecentEndTime       = moment(mostRecentEndTime, 'h:mmA');
+            var $mostRecentEntry    = TimeManager.getMostRecentEntry();
+            var mostRecentStartTime = TimeManager.getMostRecentStartTime($mostRecentEntry);
+            var mostRecentEndTime   = TimeManager.getMostRecentStartTime($mostRecentEntry);
             TimeManager.shiftTimes(mostRecentStartTime, mostRecentEndTime);
 
             // Current entry work order elements
@@ -216,6 +320,11 @@
             $billTo.val(lastClient + ' ' + lastProject);
             $client.val(lastClient);
             $project.val(lastProject);
+            $billTo.focus();
+
+            // Update predicted work time
+            var predicted = TimeManager.predictProjectTimeDeduction();
+            TimeManager.decrementRemainingWorkOrderTime(predicted);
 
             // Focus on the notes field
             $('#time_entry_table').find('#notes').focus();
@@ -273,9 +382,10 @@
                     timeUpdated = true;
                     TimeManager.decrease(self.elements.$endTime);
                 }
-                // If the time was updated, trigger updateRemainingTime and exit
+                // If the time was updated, update remaining work order info time
                 if (timeUpdated) {
-                    this.updateRemainingTime();
+                    var predicted = TimeManager.predictProjectTimeDeduction();
+                    TimeManager.decrementRemainingWorkOrderTime(null, predicted);
                     return false;
                 }
 
@@ -372,47 +482,34 @@
             this.resetElements();
             window.scrollTo(0, this.elements.$notes.offset().top - ($(window).height() / 2));
         },
-        refreshTimeEntries: function(html, deleting) {
+        refreshTimeEntries: function(html) {
             var self = this;
 
-            deleting = deleting || false;
+            // If html is provided, reset entries html
+            if (html) $('#TSEntryInline').html(html);
 
-            if (html) {
-                $('#TSEntryInline').html(html);
-            }
-
+            // Reset DOM elements
             this.resetElements();
 
             var entries = $('.entry_row');
-            // Track total recorded hours
-            var totalHours = 0.0;
             // Starts at the most recent and goes backwards through time
             _.each(entries, function(entry, i) {
                 var $entry = $(entry);
 
-                var startTime = moment($('.start_time', $entry).text(), 'h:mmA');
-                var endTime   = moment($('.end_time', $entry).text(), 'h:mmA');
+                var startTime = TimeManager.getMostRecentStartTime($entry);
+                var endTime   = TimeManager.getMostRecentEndTime($entry);
 
                 // Roll over to the next day if the end is before the start
                 if (endTime.isBefore(startTime)) {
                     endTime.add(1, 'days');
                 }
 
-                // Increment total recorded hours
-                totalHours += TimeManager.getDiffAsFractionalTime(startTime, endTime);
-
                 // We don't need to do anything if this is the last entry
                 if (i + 1 < entries.length) {
                     var $previousEntry = $(entries[i + 1]);
-                    var prevStart = moment($('.start_time', $previousEntry).text(), 'h:mmA');
-                    var prevEnd   = moment($('.end_time', $previousEntry).text(), 'h:mmA');
-
-                    var overlapped = false;
-                    if (startTime.isAfter(prevStart) && startTime.isBefore(prevEnd))
-                        overlapped = true;
-                    else if (startTime.isBefore(prevStart) && endTime.isAfter(prevStart))
-                        overlapped = true;
-
+                    var prevStart  = TimeManager.getMostRecentStartTime($previousEntry);
+                    var prevEnd    = TimeManager.getMostRecentEndTime($previousEntry);
+                    var overlapped = TimeManager.areTimesOverlapped(prevStart, prevEnd, startTime, endTime);
                     // Cannot be overlapped and gapped at the same time
                     if (overlapped && !$entry.next().hasClass('.gap_detection')) {
                         self.showOverlapWarning($entry);
@@ -428,39 +525,17 @@
             });
 
             // Update total hours in time entry table for the current day
-            var todaysHours    = 0.0;
-            var $todaysEntries = $('#time_entries thead').first();
-            _.each($todaysEntries.next().find('.entry_row'), function(entry) {
-                var $entry    = $(entry);
-                var startTime = moment($('.start_time', $entry).text(), 'h:mmA');
-                var endTime   = moment($('.end_time', $entry).text(), 'h:mmA');
-                // Roll over to the next day if the end is before the start
-                if (endTime.isBefore(startTime)) {
-                    endTime.add(1, 'days');
-                }
-
-                // Calculate the duration and increment totalHours
-                todaysHours += TimeManager.getDiffAsFractionalTime(startTime, endTime);
-            });
+            var todaysHours = TimeManager.sumTodaysEntries();
             $('#time_entries thead').first().children('.day_of_week').find('span').text(todaysHours + ' hours');
 
             // Update recorded time
-            var $recordedInfo = $('#info_bar').find('.ts_recorded'),
-                $headline     = $recordedInfo.find('.ts_headline'),
-                $caption      = $recordedInfo.find('.caption'),
-                contents      = $recordedInfo.contents();
-            contents.slice(contents.index($headline) + 1, contents.index($caption)).remove();
-            $headline.after(totalHours);
+            var totalHours = TimeManager.sumAllEntries(entries);
+            TimeManager.setTotalRecordedTime(totalHours);
 
             // If deleting, then set the start/end time relative to the most recent entry
-            if (deleting) {
-                var $mostRecentEntry    = entries.first();
-                var mostRecentStartTime = $('.start_time', $mostRecentEntry).text();
-                var mostRecentEndTime   = $('.end_time', $mostRecentEntry).text();
-                mostRecentStartTime     = moment(mostRecentStartTime, 'h:mmA');
-                mostRecentEndTime       = moment(mostRecentEndTime, 'h:mmA');
-                TimeManager.shiftTimes(mostRecentStartTime, mostRecentEndTime);
-            }
+            var mostRecentStartTime = TimeManager.getMostRecentStartTime();
+            var mostRecentEndTime   = TimeManager.getMostRecentEndTime();
+            TimeManager.shiftTimes(mostRecentStartTime, mostRecentEndTime);
         },
         // Delete a time entry row asynchronously
         deleteEntry: function(deleting) {
@@ -472,16 +547,26 @@
                 url:  url,
                 dataType: 'html',
                 success: function() {
+                    var hoursRemoved = parseFloat(_.first(deleting.elements).find('.hours').text());
                     deleting.elements.map(function(el) {
                         el.remove();
                     });
-                    self.refreshTimeEntries(null, true);
+                    self.refreshTimeEntries(null);
+                    // Update remaining time
+                    TimeManager.incrementRemainingWorkOrderTime(null, hoursRemoved);
+                    TimeManager.incrementRemainingProjectTime(null, hoursRemoved);
+                    // Predict new deduction
+                    var predicted = TimeManager.predictProjectTimeDeduction();
+                    TimeManager.decrementRemainingWorkOrderTime(null, predicted);
                 }
             });
         },
         // Handle the time entry form submission
         submitForm: function($form) {
             var self = this;
+            var startTime = TimeManager.getTimeFromElement($form.find('#start_time2'));
+            var endTime   = TimeManager.getTimeFromElement($form.find('#end_time2'));
+            var timeAdded = TimeManager.getDiffAsFractionalTime(startTime, endTime);
             $.ajax({
                 type:     'POST',
                 url:      '',
@@ -512,6 +597,10 @@
                         self.elements.$notes.val('');
                         // Update the inline entry html
                         self.refreshTimeEntries($result.find('#TSEntryInline').html());
+                        // Update remaining time
+                        var predicted = TimeManager.predictProjectTimeDeduction();
+                        TimeManager.decrementRemainingWorkOrderTime(null, timeAdded + predicted);
+                        TimeManager.decrementRemainingProjectTime(null, timeAdded);
                     }
                 }
             });
@@ -640,32 +729,6 @@
                 this.editRow();
             }
         },
-        // Update the display of remaining time on the current work order
-        updateRemainingTime: function() {
-            // Elements
-            var currentProject    = $('#project').val();
-            var $woInfoRemaining  = $('#time_entry_table #time_remaining');
-            var $woTableRemaining = $('#' + currentProject).prevUntil('tr').filter(function(i, el) {
-                return $(el).html().indexOf('hours') > -1;
-            });
-            // Get the original time remaining value
-            var $origTime         = $('#orig_time_remaining');
-            var origTimeRemaining = parseFloat($origTime.val());
-            // Get the start and end times as moments
-            var startTime         = TimeManager.getTimeFromElement(this.elements.$startTime);
-            var endTime           = TimeManager.getTimeFromElement(this.elements.$endTime);
-            // Roll over to the next day if the end is 'before' the start
-            if (endTime.isBefore(startTime)) {
-                endTime.add(1, 'days');
-            }
-            // Calculate the new time remaining
-            console.log('updateRemaining', startTime, endTime, origTimeRemaining);
-            var newTimeRemaining  = origTimeRemaining - TimeManager.getDiffAsFractionalTime(startTime, endTime);
-            // Set Work Order Information to the fractional difference
-            $woInfoRemaining.text(newTimeRemaining);
-            // Set Work Order table Remaining column to the humanized difference
-            $woTableRemaining.text(Math.round(newTimeRemaining) + ' hours');
-        }
     };
 
     if (!BINDINGS || !KEYS) {
