@@ -51,10 +51,10 @@
         var combo = KEYS.getComboForEvent(e);
 
         // On ESC or BACKSPACE, clear the input
-        if (combo.keyCode === KEYS.Esc || combo.keyCode === KEYS.Backspace) {
+        if ((combo.keyCode === KEYS.Esc || combo.keyCode === KEYS.Backspace) && !KEYS.hasMetaKeyPressed(combo)) {
             $(this).val('');
             // Allow normal tab behavior
-        } else if (combo.keyCode === KEYS.Tab) {
+        } else if ((combo.keyCode === KEYS.Tab) && !KEYS.hasMetaKeyPressed(combo)) {
             return;
         // Otherwise, bind the current key combination
         } else {

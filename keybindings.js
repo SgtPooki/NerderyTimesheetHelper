@@ -241,14 +241,19 @@ var KEYS = {
         else if (binding.meta && !currentCombo.meta)
             return false;
         else return true;
+    },
+    // Determine if any of the meta keys are pressed for the provided combo
+    hasMetaKeyPressed: function(combo) {
+        return combo.ctrl || combo.shift || combo.alt || combo.meta;
     }
 };
 
 var BINDINGS = {
-    'inc_start_time': KEYS.newCombo('Up',   ['shift']),
-    'dec_start_time': KEYS.newCombo('Down', ['shift']),
-    'inc_end_time':   KEYS.newCombo('Up',   ['ctrl']),
-    'dec_end_time':   KEYS.newCombo('Down', ['ctrl']),
-    'inc_row':        KEYS.newCombo('Up',   ['alt']),
-    'dec_row':        KEYS.newCombo('Down', ['alt'])
+    'inc_start_time': KEYS.newCombo(KEYS.Up,        ['shift']),
+    'dec_start_time': KEYS.newCombo(KEYS.Down,      ['shift']),
+    'inc_end_time':   KEYS.newCombo(KEYS.Up,        ['ctrl']),
+    'dec_end_time':   KEYS.newCombo(KEYS.Down,      ['ctrl']),
+    'inc_row':        KEYS.newCombo(KEYS.Up,        ['alt']),
+    'dec_row':        KEYS.newCombo(KEYS.Down,      ['alt']),
+    'delete_entry':   KEYS.newCombo(KEYS.Backspace, ['ctrl'])
 };
