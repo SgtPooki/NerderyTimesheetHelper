@@ -244,8 +244,11 @@
         // Are we currently editing entries?
         editing: false,
 
-        // The current row we are editing
-        $currentRow: '',
+        // Are we currently selecting an entry
+        selecting: false,
+
+        // The current row we've selected
+        $currentRow: null,
         // The currently selected row index
         currentRowIndex: -1,
         // The hash of $currentRow's original contents
@@ -355,8 +358,8 @@
             if (KEYS.metaSatisfied(combo, BINDINGS.inc_end_time) || KEYS.metaSatisfied(combo, BINDINGS.dec_end_time)) {
                 this.elements.$endTime.css('background-color', 'yellow');
             }
-            // If ENTER is pressed by itself when the editor is not active, submit the time entry
-            if (KEYS.isKeyPressed(KEYS.Enter, combo.keyCode) && (!combo.ctrl || !combo.meta || !combo.shift) && !self.editing) {
+            // If ENTER is pressed by itself when not navigationg or not editing, submit the time entry
+            if (!self.selecting && !self.editing && KEYS.isKeyPressed(KEYS.Enter, combo.keyCode) && (!combo.ctrl || !combo.meta || !combo.shift) && !self.editing) {
                 e.preventDefault();
                 // Submit entry form
                 $(self.selectors.entryForm).submit();
@@ -364,7 +367,7 @@
                 return false;
             } 
             else {
-                // Check for time modifications
+                // TIME MANIPULATION
                 var timeUpdated = false;
                 if (KEYS.isComboPressed(combo, BINDINGS.inc_start_time)) {
                     timeUpdated = true;
@@ -388,48 +391,47 @@
                     TimeManager.decrementRemainingWorkOrderTime(null, predicted);
                     return false;
                 }
-
-                // Then check for navigation
-                var changedRow = false;
-                if (KEYS.isComboPressed(e, BINDINGS.inc_row)) {
-                    changedRow = true;
-                    self.navigateDown();
-                }
-                if (KEYS.isComboPressed(e, BINDINGS.dec_row)) {
-                    changedRow = true;
+                // NAVIGATION
+                if (KEYS.isComboPressed(combo, BINDINGS.inc_row)) {
                     self.navigateUp();
                 }
-                if (changedRow) {
-                    self.center();
-                    self.elements.$notes.focus().select();
+                if (KEYS.isComboPressed(combo, BINDINGS.dec_row)) {
+                    self.navigateDown();
                 }
+                // COMMANDS
+                if (KEYS.isKeyPressed([KEYS.Enter, KEYS.Esc, KEYS.Delete], combo.keyCode)) {
 
-                // Lastly, look for editor commands
-                if (KEYS.isKeyPressed(['Enter', 'Esc', 'Delete'], combo.keyCode)) {
-                    e.preventDefault();
-                    console.log('Entry editor is active.');
-
-                    if (KEYS.isKeyPressed(KEYS.Enter, combo.keyCode)) {
-                        // Save text
-                        console.log('ENTER was hit and ENTRY editor is active');
-                        // self.EntryEditor.saveRowIfChanged();
-                    } else if (KEYS.isKeyPressed(KEYS.Esc, combo.keyCode)) {
-                        // Go back to entering a new entry
+                    // If Enter is pressed while not editing, but with a row selected, enter edit mode
+                    if (self.selecting && KEYS.isKeyPressed(KEYS.Enter, combo.keyCode)) {
+                        e.stopImmediatePropagation();
+                        self.editRow(this.currentRowIndex);
+                    }
+                    // If Enter is pressed while editing, save changes and exit edit mode, 
+                    // return to navigation mode on current row
+                    else if (self.editing && KEYS.isKeyPressed(KEYS.Enter, combo.keyCode)) {
+                        e.stopImmediatePropagation();
+                        self.cancelRow(true);
+                        console.log('cancel called');
+                        self.selectRow(this.currentRowIndex);
+                        console.log('select called');
+                    } 
+                    // If Esc is pressed while editing, exit edit mode, discarding changes
+                    // return to navigation mode on current row
+                    else if (self.editing && KEYS.isKeyPressed(KEYS.Esc, combo.keyCode)) {
+                        e.stopImmediatePropagation();
                         self.cancelRow(false);
-                        self.center();
-                        self.elements.$notes.focus();
-                    } else if (KEYS.isKeyPressed(KEYS.Delete, combo.keyCode) && combo.alt) {
-                        // Delete the currently highlighted entry. (trigger click on delete button);
-                        self.cancelRow();
+                        self.selectRow(this.currentRowIndex);
+                    }
+                    // If Delete Entry combination is pressed, delete the current row, regardless of mode
+                    else if (KEYS.isComboPressed(combo, BINDINGS.delete_entry)) {
+                        e.stopImmediatePropagation();
+                        self.cancelRow(false);
 
                         var $deleteButton = self.$currentRow.find('.delete_entry');
                         var paramArray = $deleteButton.attr('href').split('(').splice(1)[0].replace(')', '').replace(', ', ',').replace(/'/gm, '').split(',');
                         var week       = paramArray[0];
                         var row        = paramArray[1];
                         var url        = url = '/timesheet.php?&week_ending=' + week + '&delete=' + row;
-
-                        self.$currentRow.remove();
-                        self.editRow();
 
                         $.ajax({
                             type: "GET",
@@ -438,7 +440,10 @@
                                 var $data = $(data);
                                 var $message = $('<div />').text('Entry deleted!').addClass('success');
                                 self.displayMessage($message);
-                                self.resetRow();
+                                // Delete entry from DOM
+                                self.$currentRow.remove();
+                                // Go to next entry
+                                self.navigateDown();
                             }
                         });
                     }
@@ -629,106 +634,115 @@
                         // Let Nerd know their time was saved properly!
                         var $successMessage = $('<div />').text('Entry saved!').addClass('success');
                         self.displayMessage($successMessage);
-                        console.log($data);
-                        this.$currentRow.html($data);
-                        //self.replaceEntryHtml($data);
                         self.refreshTimeEntries();
                     }
                 }
             });
         },
-        // Reset the currently selected row's data
-        resetRow: function($data) {
-            if (this.currentRowIndex > -1) {
-                var savedText = this.$currentRow.find(this.selectors.notesEditor).val();
-                this.cancelRow(false);
-                $(this.selectors.inlineEntry).html($data.find(this.selectors.inlineEntry).html());
-                this.editRow();
-                var $textBox = this.$currentRow.find('.notes textarea');
-                $textBox.focus();
-                $textBox.val(savedText);
-                this.center();
-            }
-        },
         // Generate a hash of the row's contents for change tracking
-        hashRow: function() {
-            if (this.editing) {
-                return this.$currentRow.find('input, textarea').reduce(function(acc, el) {
-                    return acc + $(el).val();
-                }, '');
-            } else return '';
-        },
-        // Enable/Disable input on the current row
-        disableCurrentRow: function() {
-            this.$currentRow.children('input').attr('disabled', 'disabled');
-        },
-        enableCurrentRow: function() {
-            this.$currentRow.children('input').removeAttr('disabled');
+        hashRow: function($row) {
+            return _.reduce($('input, textarea', $row), function(acc, el) {
+                return acc + $(el).val();
+            }, '');
         },
         // Begin editing the selected row
-        editRow: function($row){
-            this.editing = true;
-            if (this.currentRowIndex === -1) {
-                $row = null;
-            } else {
-                $row = $row || $('.entry_row').eq(this.currentRowIndex);
-                this.$currentRow = $row;
+        editRow: function(row){
+            if (row instanceof jQuery)
+                this.$currentRow = row;
+            else {
+                var entries = $('#time_entries .entry_row');
+                if (row && typeof row === 'number')
+                    this.$currentRow = entries.eq(row);
+                else
+                    this.$currentRow = entries.eq(this.currentRowIndex);
             }
 
             if (this.$currentRow) {
-                this.$currentRow.find('.edit_entry').trigger('click');
-                this.$currentRow.find('#notes').focus().select();
-                this.currentHash = this.hashRow();
+                this.editing = true;
+                this.injectScript('$(".entry_row").eq(' + this.currentRowIndex + ').find(".edit_entry").click();');
+
+                this.$currentRow.find('textarea[name=notes]').focus().select();
+                this.currentHash = this.hashRow(this.$currentRow);
             }
         },
         // Cancel edits on the selected row
         cancelRow: function(save) {
-            // If save is not provided, or is truthy, then save changes
-            save = typeof save === 'undefined' ? true : save || false;
+            save = save || false;
             if (this.$currentRow) {
                 // Save changes if there are any
-                if (save && this.editing && this.currentHash !== this.hashRow()) {
+                if (save && this.editing && this.currentHash !== this.hashRow(this.$currentRow)) {
+                    // Save
                     this.saveChanges();
+                    // Pull inline editor changes over to readonly display
+                    var tempText = this.$currentRow.find('.inline_text_edit').val();
+                    // Cancel editing
+                    this.injectScript('$(".entry_row").eq(' + this.currentRowIndex + ').find(".cancel_edit").click();');
+                    // Set the notes text with text from the inline editor
+                    this.$currentRow.find('td.notes').text(tempText);
+                } else {
+                    // Cancel editing
+                    this.injectScript('$(".entry_row").eq(' + this.currentRowIndex + ').find(".cancel_edit").click();');
                 }
-
-                // Pull inline editor changes over to readonly display
-                var tempText = this.$currentRow.find('.inline_text_edit').val();
-                // Cancel editing
-                this.$currentRow.find('.cancel_edit').trigger('click');
-                // Set the notes text with text from the inline editor
-                this.$currentRow.find('td.notes').text(tempText);
 
                 // Reset internal state
                 this.editing = false;
-                this.currentRowIndex = -1;
                 this.currentHash = '';
-                this.$currentRow = null;
+            }
+        },
+        selectRow: function(row) {
+            if (row instanceof jQuery)
+                this.$currentRow = row;
+            else {
+                var entries = $('#time_entries .entry_row');
+                if (row && typeof row === 'number')
+                    this.$currentRow = entries.eq(row);
+                else
+                    this.$currentRow = entries.eq(this.currentRowIndex);
+            }
+
+            this.center();
+            this.selecting = true;
+            this.elements.$notes.trigger('blur');
+            this.$currentRow.css('background-color', 'white');
+            this.$currentRow.children('td').css('background-color', 'transparent');
+        },
+        deselectRow: function($row) {
+            if ($row) {
+                $row.css('background-color', 'transparent');
+                $row.children('td').css('background-color', '#f0f0e8');
             }
         },
         // Row navigation
         navigateDown: function() {
-            // Cancel current edits
-            this.cancelRow();
-
-            var maxRows = $('.entry_row').length;
-            if (this.currentRowIndex + 1 >= maxRows) {
-                this.currentRowIndex = maxRows - 1;
-            } else {
+            var entries = $('#time_entries .entry_row');
+            var maxRows = entries.length;
+            if (this.currentRowIndex < maxRows - 1) {
+                // Cancel edit mode if editing
+                this.cancelRow(false);
                 this.currentRowIndex++;
-                this.editRow();
+                // Deselect previous row
+                this.deselectRow(this.$currentRow);
+                // Select new row
+                this.selectRow(entries.eq(this.currentRowIndex));
             }
         },
         navigateUp: function() {
-            // Cancel current edits
-            this.cancelRow();
-
-            if (this.currentRowIndex - 1 < 0) {
-                this.currentRowIndex = 0;
-            } else {
+            if (this.currentRowIndex - 1 >= 0) {
+                // Cancel edit mode if editing
+                this.cancelRow(false);
                 this.currentRowIndex--;
-                this.editRow();
+                // Deselect previous row
+                this.deselectRow(this.$currentRow);
+                // Select new row
+                this.selectRow(this.currentRowIndex);
             }
         },
+        injectScript: function(scriptText) {
+            var script = document.createElement('script');
+            script.textContent = scriptText;
+            document.body.appendChild(script);
+            setTimeout(function() { document.body.removeChild(script); }, 200);
+        }
     };
 
     if (!BINDINGS || !KEYS) {
