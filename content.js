@@ -306,7 +306,7 @@
         resetTimeEntry: function() {
             var $mostRecentEntry    = TimeManager.getMostRecentEntry();
             var mostRecentStartTime = TimeManager.getMostRecentStartTime($mostRecentEntry);
-            var mostRecentEndTime   = TimeManager.getMostRecentStartTime($mostRecentEntry);
+            var mostRecentEndTime   = TimeManager.getMostRecentEndTime($mostRecentEntry);
             TimeManager.shiftTimes(mostRecentStartTime, mostRecentEndTime);
 
             // Current entry work order elements
@@ -401,52 +401,53 @@
                 // COMMANDS
                 if (KEYS.isKeyPressed([KEYS.Enter, KEYS.Esc, KEYS.Delete], combo.keyCode)) {
 
+                    // If Enter is pressed while editing, save changes and exit edit mode, 
+                    // return to navigation mode on current row
+                    if (self.editing && KEYS.isKeyPressed(KEYS.Enter, combo.keyCode)) {
+                        e.stopImmediatePropagation();
+                        self.cancelRow(true);
+                        self.selectRow(this.currentRowIndex);
+                    } 
                     // If Enter is pressed while not editing, but with a row selected, enter edit mode
-                    if (self.selecting && KEYS.isKeyPressed(KEYS.Enter, combo.keyCode)) {
+                    else if (self.selecting && KEYS.isKeyPressed(KEYS.Enter, combo.keyCode)) {
                         e.stopImmediatePropagation();
                         self.editRow(this.currentRowIndex);
                     }
-                    // If Enter is pressed while editing, save changes and exit edit mode, 
-                    // return to navigation mode on current row
-                    else if (self.editing && KEYS.isKeyPressed(KEYS.Enter, combo.keyCode)) {
+                    // If navigating rows, and Esc is pressed, return to new time entry
+                    else if (self.selecting && !self.editing && KEYS.isKeyPressed(KEYS.Esc, combo.keyCode)) {
                         e.stopImmediatePropagation();
-                        self.cancelRow(true);
-                        console.log('cancel called');
-                        self.selectRow(this.currentRowIndex);
-                        console.log('select called');
-                    } 
-                    // If Esc is pressed while editing, exit edit mode, discarding changes
-                    // return to navigation mode on current row
+                        self.deselectRow(this.$currentRow, true);
+                        $('#notes').focus();
+                    }
+                    // If editing a row and Esc is pressed, exit edit mode, discarding changes
                     else if (self.editing && KEYS.isKeyPressed(KEYS.Esc, combo.keyCode)) {
                         e.stopImmediatePropagation();
                         self.cancelRow(false);
-                        self.selectRow(this.currentRowIndex);
+                        self.deselectRow(this.$currentRow, true);
+                        $('#notes').focus();
                     }
-                    // If Delete Entry combination is pressed, delete the current row, regardless of mode
-                    else if (KEYS.isComboPressed(combo, BINDINGS.delete_entry)) {
-                        e.stopImmediatePropagation();
-                        self.cancelRow(false);
+                }
+                // If Delete Entry combination is pressed, delete the current row, regardless of mode
+                else if (KEYS.isComboPressed(combo, BINDINGS.delete_entry)) {
+                    e.stopImmediatePropagation();
+                    self.cancelRow(false);
 
-                        var $deleteButton = self.$currentRow.find('.delete_entry');
-                        var paramArray = $deleteButton.attr('href').split('(').splice(1)[0].replace(')', '').replace(', ', ',').replace(/'/gm, '').split(',');
-                        var week       = paramArray[0];
-                        var row        = paramArray[1];
-                        var url        = url = '/timesheet.php?&week_ending=' + week + '&delete=' + row;
+                    var $deleteButton = self.$currentRow.find('.delete_entry');
+                    var paramArray = $deleteButton.attr('href').split('(').splice(1)[0].replace(')', '').replace(', ', ',').replace(/'/gm, '').split(',');
+                    var week       = paramArray[0];
+                    var row        = paramArray[1];
+                    var url        = url = '/timesheet.php?&week_ending=' + week + '&delete=' + row;
 
-                        $.ajax({
-                            type: "GET",
-                            url: url,
-                            success: function (data) {
-                                var $data = $(data);
-                                var $message = $('<div />').text('Entry deleted!').addClass('success');
-                                self.displayMessage($message);
-                                // Delete entry from DOM
-                                self.$currentRow.remove();
-                                // Go to next entry
-                                self.navigateDown();
-                            }
-                        });
-                    }
+                    $.ajax({
+                        type: "GET",
+                        url: url,
+                        success: function (data) {
+                            // Delete entry from DOM
+                            self.$currentRow.remove();
+                            // Go to next entry
+                            self.selectRow(this.currentRowIndex);
+                        }
+                    });
                 }
             }
         },
@@ -484,6 +485,7 @@
         },
         // Center the display on the current row
         center: function() {
+            // TODO: Need to check if already in view, to prevent jitter on smaller screens
             this.resetElements();
             window.scrollTo(0, this.elements.$notes.offset().top - ($(window).height() / 2));
         },
@@ -623,7 +625,7 @@
                 data:     data,
                 success: function (data) {
 
-                    $data = $(data);
+                    var $data = $(data);
 
                     var $errors = $data.find('.error');
                     if ($errors.length > 2) {
@@ -706,10 +708,16 @@
             this.$currentRow.css('background-color', 'white');
             this.$currentRow.children('td').css('background-color', 'transparent');
         },
-        deselectRow: function($row) {
+        deselectRow: function($row, reset) {
+            reset = reset || false;
             if ($row) {
                 $row.css('background-color', 'transparent');
                 $row.children('td').css('background-color', '#f0f0e8');
+
+                if (reset) {
+                    this.selecting = false;
+                    this.currentRowIndex = -1;
+                }
             }
         },
         // Row navigation
