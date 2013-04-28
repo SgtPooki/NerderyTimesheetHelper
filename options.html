@@ -14,37 +14,37 @@
 			<h2>Keybindings</h2>
 			<div class="row">
 				<label for="inc_start_time">Increment Start Time</label>
-				<input type="text" name="inc_start_time" id="inc_start_time" data-keybinder />
+				<input type="text" name="inc_start_time" id="inc_start_time" data-keybinder data-default-bind="SHIFT+Up"/>
 				<span class="comment">Press ESC or BACKSPACE to clear. Tab to accept.</span>
 			</div>
 			<div class="row">
 				<label for="dec_start_time">Decrement Start Time</label>
-				<input type="text" name="dec_start_time" id="dec_start_time" data-keybinder />
+				<input type="text" name="dec_start_time" id="dec_start_time" data-keybinder data-default-bind="SHIFT+Down"/>
 				<span class="comment">Press ESC or BACKSPACE to clear. Tab to accept.</span>
 			</div>
 			<div class="row">
 				<label for="inc_end_time">Increment End Time</label>
-				<input type="text" name="inc_end_time" id="inc_end_time" data-keybinder />
+				<input type="text" name="inc_end_time" id="inc_end_time" data-keybinder data-default-bind="CTRL+Up"/>
 				<span class="comment">Press ESC or BACKSPACE to clear. Tab to accept.</span>
 			</div>
 			<div class="row">
 				<label for="dec_end_time">Decrement End Time</label>
-				<input type="text" name="dec_end_time" id="dec_end_time" data-keybinder />
+				<input type="text" name="dec_end_time" id="dec_end_time" data-keybinder data-default-bind="CTRL+Down"/>
 				<span class="comment">Press ESC or BACKSPACE to clear. Tab to accept.</span>
 			</div>
 			<div class="row">
 				<label for="inc_row">Navigate Up One Row</label>
-				<input type="text" name="inc_row" id="inc_row" data-keybinder />
+				<input type="text" name="inc_row" id="inc_row" data-keybinder data-default-bind="ALT+Up"/>
 				<span class="comment">Press ESC or BACKSPACE to clear. Tab to accept.</span>
 			</div>
 			<div class="row">
 				<label for="dec_row">Navigate Down One Row</label>
-				<input type="text" name="dec_row" id="dec_row" data-keybinder />
+				<input type="text" name="dec_row" id="dec_row" data-keybinder data-default-bind="ALT+Down"/>
 				<span class="comment">Press ESC or BACKSPACE to clear. Tab to accept.</span>
 			</div>
 			<div class="row">
 				<label for="delete_entry">Delete Selected Entry</label>
-				<input type="text" name="delete_entry" id="delete_entry" data-keybinder />
+				<input type="text" name="delete_entry" id="delete_entry" data-keybinder data-default-bind="CTRL+Backspace"/>
 				<span class="comment">Press ESC or BACKSPACE to clear. Tab to accept.</span>
 			</div>
 		</fieldset>
@@ -62,6 +62,7 @@
 	<!-- EXTERNAL SCRIPTS -->
 	<script src="lib/underscore.min.js"></script>
 	<script src="lib/jquery.min.js"></script>
+	<script src="lib/utils.js"></script>
 	<script src="keybindings.js"></script>
 	<script src="options.js"></script>
 </body>

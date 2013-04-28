@@ -1,259 +1,368 @@
-var KEYS = {
-    'A': 65,
-    'B': 66,
-    'C': 67,
-    'D': 68,
-    'E': 69,
-    'F': 70,
-    'G': 71,
-    'H': 72,
-    'I': 73,
-    'J': 74,
-    'K': 75,
-    'L': 76,
-    'M': 77,
-    'N': 78,
-    'O': 79,
-    'P': 80,
-    'Q': 81,
-    'R': 82,
-    'S': 83,
-    'T': 84,
-    'U': 85,
-    'V': 86,
-    'W': 87,
-    'X': 88,
-    'Y': 89,
-    'Z': 90,
-    '0': 48,
-    '1': 49,
-    '2': 50,
-    '3': 51,
-    '4': 52,
-    '5': 53,
-    '6': 54,
-    '7': 55,
-    '8': 56,
-    '9': 57,
-    'Numpad 0': 96,
-    'Numpad 1': 97,
-    'Numpad 2': 98,
-    'Numpad 3': 99,
-    'Numpad 4': 100,
-    'Numpad 5': 101,
-    'Numpad 6': 102,
-    'Numpad 7': 103,
-    'Numpad 8': 104,
-    'Numpad 9': 105,
-    'Multiply': 106,
-    'Add': 107,
-    'Enter': 13,
-    'Subtract': 109,
-    'Decimal': 110,
-    'Divide': 111,
-    'F1': 112,
-    'F2': 113,
-    'F3': 114,
-    'F4': 115,
-    'F5': 116,
-    'F6': 117,
-    'F7': 118,
-    'F8': 119,
-    'F9': 120,
-    'F11': 122,
-    'F12': 123,
-    'F13': 124,
-    'F14': 125,
-    'F15': 126,
-    'Backspace': 8,
-    'Tab': 9,
-    'Enter': 13,
-    'SHIFT': 16,
-    'CTRL': 17,
-    'ALT': 18,
-    'META': 91,
-    'META_RIGHT': 93,
-    'Caps Lock': 20,
-    'Esc': 27,
-    'Spacebar': 32,
-    'Page Up': 33,
-    'Page Down': 34,
-    'End': 35,
-    'Home': 36,
-    'Left': 37,
-    'Up': 38,
-    'Right': 39,
-    'Down': 40,
-    'Insert': 45,
-    'Delete': 46,
-    'Num Lock': 144,
-    'ScrLk': 145,
-    'Pause/Break': 19,
-    '; :': 186,
-    '= +': 187,
-    '- _': 189,
-    '/ ?': 191,
-    '` ~': 192,
-    '[ {': 219,
-    '\\ |': 220,
-    '] }': 221,
-    '" \'': 222,
-    ',': 188,
-    '.': 190,
-    '/': 191,
-    // Get the name for the keycode provided
-    getNameFor: function(which) {
-        for (key in this) {
-            //console.log(key);
-            var keycode = this[key]
-            if ((typeof keycode === 'number') && which === keycode) {
-                return key;
+(function($, root) {
+    var empty = Function.prototype.valueOf();
+
+    root.Keys = {
+        'A': 65,
+        'B': 66,
+        'C': 67,
+        'D': 68,
+        'E': 69,
+        'F': 70,
+        'G': 71,
+        'H': 72,
+        'I': 73,
+        'J': 74,
+        'K': 75,
+        'L': 76,
+        'M': 77,
+        'N': 78,
+        'O': 79,
+        'P': 80,
+        'Q': 81,
+        'R': 82,
+        'S': 83,
+        'T': 84,
+        'U': 85,
+        'V': 86,
+        'W': 87,
+        'X': 88,
+        'Y': 89,
+        'Z': 90,
+        '0': 48,
+        '1': 49,
+        '2': 50,
+        '3': 51,
+        '4': 52,
+        '5': 53,
+        '6': 54,
+        '7': 55,
+        '8': 56,
+        '9': 57,
+        'Numpad 0': 96,
+        'Numpad 1': 97,
+        'Numpad 2': 98,
+        'Numpad 3': 99,
+        'Numpad 4': 100,
+        'Numpad 5': 101,
+        'Numpad 6': 102,
+        'Numpad 7': 103,
+        'Numpad 8': 104,
+        'Numpad 9': 105,
+        'Multiply': 106,
+        'Add': 107,
+        'Subtract': 109,
+        'Decimal': 110,
+        'Divide': 111,
+        'F1': 112,
+        'F2': 113,
+        'F3': 114,
+        'F4': 115,
+        'F5': 116,
+        'F6': 117,
+        'F7': 118,
+        'F8': 119,
+        'F9': 120,
+        'F11': 122,
+        'F12': 123,
+        'F13': 124,
+        'F14': 125,
+        'F15': 126,
+        'Backspace': 8,
+        'Tab': 9,
+        'Enter': 13,
+        'SHIFT': 16,
+        'CTRL': 17,
+        'ALT': 18,
+        'META': 91,
+        'META_RIGHT': 93,
+        'Caps Lock': 20,
+        'Esc': 27,
+        'Spacebar': 32,
+        'Page Up': 33,
+        'Page Down': 34,
+        'End': 35,
+        'Home': 36,
+        'Left': 37,
+        'Up': 38,
+        'Right': 39,
+        'Down': 40,
+        'Insert': 45,
+        'Delete': 46,
+        'Num Lock': 144,
+        'ScrLk': 145,
+        'Pause/Break': 19,
+        '; :': 186,
+        '= +': 187,
+        '- _': 189,
+        '/ ?': 191,
+        '` ~': 192,
+        '[ {': 219,
+        '\\ |': 220,
+        '] }': 221,
+        '" \'': 222,
+        ',': 188,
+        '.': 190,
+        '/': 191,
+        // Get the name for the keycode provided
+        getName: function(which) {
+            if (typeof which !== 'number')
+                throw new Error('Combo.getName: `which` must be a keycode (number), was: ' + console.debug(which));
+
+            for (key in this) {
+                var keycode = this[key]
+                if ((typeof keycode === 'number') && which === keycode) {
+                    return key;
+                }
+            }
+
+            return 'Unknown';
+        },
+        // Get the keycode for the name provided
+        getCode: function(key) {
+            if (typeof key !== 'string')
+                throw new Error('Combo.getCode: `key` must be a string, was: ' + console.debug(key));
+            return this[key];
+        },
+        /* Determine if the provided key was pressed
+         * key: The expected key (can be either a keycode or the letter)
+         * which: The keyCode (from e.which) of the currently pressed key
+         */
+        isKeyPressed: function(key, which) {
+            if (typeof which !== 'number')
+                throw new Error('Combo.isKeyPressed: `which` must be a keycode (number), was: ' + console.debug(arguments));
+
+            var self = this;
+            if (typeof key === 'string') {
+                return which === this.getCode(key);
+            } else if (typeof key === 'number') {
+                return which === key;
+            } else if (key && key.constructor.name === 'Array') {
+                // Map each key to it's keyCode, and check for the presence of `which`
+                return key.map(function(k) {
+                    if (typeof k === 'string') return self.getCode(k);
+                    else return k;
+                }).indexOf(which) > -1;
+            } else {
+                // Not a number or string? Not a valid keycode
+                return false;
+            }
+        },
+        // Return true if the provided key is a meta key
+        isMetaKey: function(which) {
+            if (typeof which !== 'number')
+                throw new Error('Combo.isMetaKey: `which` must be a keycode (number), was: ' + console.debug(which));
+
+            switch (which) {
+                case this.CTRL:
+                case this.SHIFT:
+                case this.ALT:
+                case this.META:
+                case this.META_RIGHT:
+                    return true;
+                default:
+                    return false;
             }
         }
+    };
 
-        return null;
-    },
-    // Get the keycode for the name provided
-    getCodeFor: function(key) {
-        return this[key];
-    },
-    /* Determine if the provided key was pressed
-     * key: The expected key (can be either a keycode or the letter)
-     * which: The keyCode (from e.which) of the currently pressed key
-     */
-    isKeyPressed: function(key, which) {
-        var self = this;
-        if (typeof key === 'string') {
-            return which === this.getCodeFor(key);
-        } else if (typeof key === 'number') {
-            return which === key;
-        } else if (key && key.constructor.name === 'Array') {
-            // Map each key to it's keyCode, and check for the presence of `which`
-            return key.map(function(k) {
-                if (typeof k === 'string') return self.getCodeFor(k);
-                else return k;
-            }).indexOf(which) > -1;
+    function Combo(keyCode, meta) {
+        if (arguments.length === 2 && meta && meta.constructor.name === 'Array') {
+            if (typeof keyCode === 'string')
+                this.keyCode = Keys.getCode(keyCode);
+            else
+                this.keyCode = keyCode;
+            this.ctrl  = meta.indexOf('ctrl') > -1  || meta.indexOf(Keys.CTRL) > -1;
+            this.shift = meta.indexOf('shift') > -1 || meta.indexOf(Keys.SHIFT) > -1;
+            this.alt   = meta.indexOf('alt') > -1   || meta.indexOf(Keys.ALT) > -1;
+            this.meta  = meta.indexOf('meta') > -1  || meta.indexOf(Keys.META) > -1 || meta.indexOf(Keys.META_RIGHT) > -1;
+        } else if (arguments.length === 1) {
+            if (typeof keyCode === 'string')
+                this.keyCode = Keys.getCode(keyCode);
+            else
+                this.keyCode = keyCode;
+            this.ctrl = this.shift = this.alt = this.meta = false;
         } else {
-            // Not a number or string? Not a valid keycode
-            return false;
+            throw new Error('Combo: Invalid number of arguments provided: ' + console.debug(arguments));
         }
-    },
+    }
+    // Pretty print the combo
+    Combo.prototype.toString = function() {
+        var meta = (this.ctrl  ? 'CTRL+'  : '') + 
+                   (this.alt   ? 'ALT+'   : '') +
+                   (this.shift ? 'SHIFT+' : '') +
+                   (this.meta  ? 'META+'  : '');
+        return meta + (Keys.getName(this.keyCode) || '');
+    };
+    // Encode Combo as JSON
+    Combo.prototype.serialize = function() {
+        return JSON.stringify(this);
+    };
+    // Decode Combo from JSON string
+    Combo.deserialize = function(serialized) {
+        return JSON.parse(serialized);
+    };
+    // Create a Combo from an arbitrary object, useful for shorthand notation, or when deserializing Bindings
+    // so that the Binding's combo is of type Combo.
+    Combo.fromObject = function(obj) {
+        if (!obj || typeof obj.keyCode !== 'number')
+            throw new Error('Combo.fromObject: Cannot create Combo from provided object: ' + console.debug(obj));
+        var combo = new Combo(obj.keyCode);
+        combo.ctrl  = obj.ctrl  || false;
+        combo.alt   = obj.alt   || false;
+        combo.shift = obj.shift || false;
+        combo.meta  = obj.meta  || false;
+        return combo;
+    };
+    // Given a keypress event, convert to a Combo
+    Combo.fromEvent = function(e) {
+        var combo   = new Combo(e.which);
+        combo.shift = e.shiftKey;
+        combo.alt   = e.altKey;
+        combo.meta  = e.metaKey;
+        combo.ctrl  = e.ctrlKey;
+        return combo;
+    };
+    // Reverse of toString, you should get the original combo if you call Combo.fromString(combo.toString())
+    Combo.fromString = function(str) {
+        var parts     = str.split('+');
+        if (parts.length >= 1) {
+            var combo     = new Combo(Keys.getCode(parts[parts.length - 1]));
+            combo.ctrl    = parts.indexOf('CTRL') > -1;
+            combo.alt     = parts.indexOf('ALT') > -1;
+            combo.shift   = parts.indexOf('SHIFT') > -1;
+            combo.meta    = parts.indexOf('META') > -1 || parts.indexOf('META_RIGHT') > -1;
+            return combo;
+        } else throw Error('Combo.fromString: Invalid string: ' + str);
+    };
     // Determine if the provided combo was pressed
-    isComboPressed: function (combo, binding) {
-        if (!combo || !binding) return false;
+    // ignoreKey: true/false - Set to true if you only want to match on meta keys
+    Combo.prototype.isMatch = function (combo, ignoreKey) {
+        if (!combo) 
+            throw new Error('Combo.isMatch called without a combo to match against.');
 
         // If the key itself is the same, we just have to ensure the expected meta key is pressed
-        if (binding.keyCode !== combo.keyCode) return false;
-        if (binding.shift && !combo.shift) return false;
-        if (binding.alt && !combo.alt) return false;
-        if (binding.ctrl && !combo.ctrl) return false;
-        if (binding.meta && !combo.meta) return false;
+        if (!ignoreKey && (this.keyCode !== combo.keyCode)) return false;
+        if (this.shift   && !combo.shift)   return false;
+        if (this.alt     && !combo.alt)     return false;
+        if (this.ctrl    && !combo.ctrl)    return false;
+        if (this.meta    && !combo.meta)    return false;
         else return true;
-    },
-    // Return true if the provided key is a meta key
-    isKeyMeta: function(keyCode) {
-        switch (keyCode) {
-            case this.CTRL:
-            case this.SHIFT:
-            case this.ALT:
-            case this.META:
-            case this.META_RIGHT:
-                return true;
-            default:
-                return false;
-        }
-    },
-    // Return an empty combo object
-    getEmptyCombo: function() {
-        return {
-            shift:   false,
-            alt:     false,
-            meta:    false,
-            ctrl:    false,
-            keyCode: 0,
-        };
-    },
-    // Given a keypress event, get the keycombo it contains
-    getComboForEvent: function(e) {
-        var combo = this.getEmptyCombo();
-        combo.shift   = e.shiftKey || false;
-        combo.alt     = e.altKey   || false;
-        combo.meta    = e.metaKey  || false;
-        combo.ctrl    = e.ctrlKey  || false;
-        combo.keyCode = e.which    || 0;
-        return combo;
-    },
-    // Create a new key combination
-    newCombo: function(keyCode, meta) {
-        var combo = KEYS.getEmptyCombo();
-        meta = meta || [];
-        if (typeof keyCode === 'string')
-            combo.keyCode = this.getCodeFor(keyCode);
-        else
-            combo.keyCode = keyCode || 0;
-        combo.shift   = meta.indexOf('shift') > -1
-        combo.ctrl    = meta.indexOf('ctrl') > -1
-        combo.alt     = meta.indexOf('alt') > -1
-        combo.meta    = meta.indexOf('meta') > -1
-        return combo;
-    },
-    // Pretty print the provided combo
-    getComboString: function(combo) {
-        var meta = (combo.ctrl  ? 'CTRL+'  : '') + 
-                   (combo.alt   ? 'ALT+'   : '') +
-                   (combo.shift ? 'SHIFT+' : '') +
-                   (combo.meta  ? 'META+'  : '');
-        return meta + (this.getNameFor(combo.keyCode) || '');
-    },
-    // Reverse of getComboString, you should get the original combo if you call comboFromString(getComboString)
-    comboFromString: function(str) {
-        var parts     = str.split('+');
-        var combo     = this.getEmptyCombo();
-        combo.keyCode = this.getCodeFor(parts[parts.length - 1]);
-        combo.ctrl    = parts.indexOf('CTRL') > -1;
-        combo.alt     = parts.indexOf('ALT') > -1;
-        combo.shift   = parts.indexOf('SHIFT') > -1;
-        combo.meta    = parts.indexOf('META') > -1;
-        return combo;
-    },
-    // Check if a key combo requires the presence of the provided key
-    requiredBy: function(keyCode, combo) {
-        if (combo.keyCode === keyCode)
-            return true;
-        else if (combo.ctrl && keyCode === this.CTRL)
-            return true;
-        else if (combo.shift && keyCode === this.SHIFT)
-            return true;
-        else if (combo.alt && keyCode === this.ALT)
-            return true;
-        else if (combo.meta && (keyCode === this.META || keyCode === this.META_RIGHT))
+    };
+    // Check if a Combo requires the presence of the provided key
+    Combo.prototype.requires = function(which) {
+        if (typeof which !== 'number')
+            throw new Error('Combo.requires: `which` must be a keycode (number), was:' + console.debug(which));
+
+        if (this.keyCode === which) return true;
+        else if (this.ctrl  && keyCode === Keys.CTRL)  return true;
+        else if (this.shift && keyCode === Keys.SHIFT) return true;
+        else if (this.alt   && keyCode === Keys.ALT)   return true;
+        else if (this.meta  && (keyCode === Keys.META || keyCode === Keys.META_RIGHT))
             return true;
         else return false;
-    },
-    // Check to see if the provided combo satisfies all the meta requirements for the provided binding combo
-    metaSatisfied: function(currentCombo, binding) {
-        if (binding.ctrl && !currentCombo.ctrl)
-            return false;
-        else if (binding.shift && !currentCombo.shift)
-            return false;
-        else if (binding.alt && !currentCombo.alt)
-            return false;
-        else if (binding.meta && !currentCombo.meta)
-            return false;
-        else return true;
-    },
-    // Determine if any of the meta keys are pressed for the provided combo
-    hasMetaKeyPressed: function(combo) {
-        return combo.ctrl || combo.shift || combo.alt || combo.meta;
-    }
-};
+    };
+    Combo.prototype.containsMetaKeys = function() {
+        return this.ctrl || this.shift || this.alt || this.meta;
+    };
 
-var BINDINGS = {
-    'inc_start_time': KEYS.newCombo(KEYS.Up,        ['shift']),
-    'dec_start_time': KEYS.newCombo(KEYS.Down,      ['shift']),
-    'inc_end_time':   KEYS.newCombo(KEYS.Up,        ['ctrl']),
-    'dec_end_time':   KEYS.newCombo(KEYS.Down,      ['ctrl']),
-    'inc_row':        KEYS.newCombo(KEYS.Up,        ['alt']),
-    'dec_row':        KEYS.newCombo(KEYS.Down,      ['alt']),
-    'delete_entry':   KEYS.newCombo(KEYS.Backspace, ['ctrl'])
-};
+    root.Combo = Combo;
+
+    root.Keybindings = (function() {
+
+        function Keybindings() {
+            var self = this;
+            $(root.document).on('keydown', function(e) { handleKeydown(e, self); });
+            $(root.document).on('keyup',   function(e) { handleKeyup(e, self); });
+
+            this.bindings = [];
+            this.handlers = [];
+        }
+
+        Keybindings.prototype.add = function(name, combo) {
+            if (!name || !combo)
+                throw new Error('Keybindings.add: Invalid arguments provided: ' + console.debug(arguments));
+            if (!combo.constructor || combo.constructor.name !== 'Combo')
+                throw new Error('Keybindings.add: `combo` must be an instance of Combo: ' + console.debug(arguments));
+
+            // If the binding name already exists, overwrite it
+            var location = utils.locate(this.bindings, function(b) { return b.name === name; });
+            if (location > -1) {
+                this.bindings[location].combo = combo;
+            } else {
+                this.bindings.push({
+                    name:  name,
+                    combo: combo
+                });
+            }
+        };
+
+        Keybindings.prototype.registerHandler = function(bindingName, eventType, handler) {
+            if (!bindingName || !eventType || !handler || typeof handler !== 'function')
+                throw new Error('Keybindings.registerHandler: Invalid arguments provided: ' + console.debug(arguments));
+
+            this.handlers.push({
+                name:      bindingName,
+                eventType: eventType,
+                handler:   handler
+            });
+        };
+
+        Keybindings.prototype.serialize = function() {
+            return JSON.stringify(this);
+        };
+
+        Keybindings.prototype.deserialize = function(serialized) {
+            var parsed = JSON.parse(serialized);
+            if (!parsed || !parsed.bindings || !parsed.bindings.constructor || parsed.bindings.constructor.name !== 'Array')
+                throw new Error('Keybindings.deserialize: Unable to deserialize keybindings: ' + console.debug(parsed));
+            // Deserialize bindings
+            var mapped = parsed.bindings.map(function(b) { 
+                b.combo = Combo.fromObject(b.combo); 
+                return b;
+            });
+            this.bindings = mapped;
+        };
+
+        function handlesEvent(handler, bindings, e) { 
+            var binding = null;
+            for (var i = 0; i < bindings.length; i++) {
+                if (bindings[i].name === handler.name) {
+                    binding = bindings[i];
+                    break;
+                }
+            }
+
+            if (!binding) return false
+            else return binding.combo.isMatch(Combo.fromEvent(e)); 
+        }
+
+        function handleKeydown(e, instance) {
+            e.stopImmediatePropagation();
+
+            instance.handlers
+                .filter(function(h) {
+                    return h.eventType === 'keydown' && handlesEvent(h, instance.bindings, e);
+                })
+                .forEach(function(h) {
+                    h.handler();
+                });
+
+            return false;
+        };
+        function handleKeyup(e, instance) {
+            e.stopImmediatePropagation();
+
+            instance.handlers
+                .filter(function(h) {
+                    return h.eventType === 'keyup' && handlesEvent(h, instance.bindings, e);
+            }).forEach(function(h) {
+                h.handler();
+            });
+
+            return false;
+        };
+
+        return new Keybindings();
+
+    })();
+})(jQuery, window);
