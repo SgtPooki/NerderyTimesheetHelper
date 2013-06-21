@@ -16,6 +16,7 @@
       "matches": ["https://mainframe.nerdery.com/timesheet.php*"],
       "js": [
         "lib/toolbox.js",
+        "lib/moment.min.js",
         "lib/jquery.min.js",
         "lib/plugins.js",
         "lib/moment.min.js",
