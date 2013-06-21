@@ -15,9 +15,7 @@
     {
       "matches": ["https://mainframe.nerdery.com/timesheet.php*"],
       "js": [
-        "lib/underscore.min.js",
         "lib/jquery.min.js",
-        "lib/utils.js",
         "lib/plugins.js",
         "lib/moment.min.js",
         "keybindings.js",
