@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "Nerdery Timesheet Helper",
   "description": "Helps you use the nerdery timesheet more quickly using keyboard shortcuts",
-  "homepage_url": "https://github.com/bitwalker/NerderyTimesheetHelper",
+  "homepage_url": "https://github.com/SgtPooki/NerderyTimesheetHelper",
   "version": "1.3",
   "icons": {
     "128": "icon.png"
@@ -29,5 +29,5 @@
       "https://mainframe.nerdery.com/timesheet.php*",
       "https://mainframe.nerdery.com/timesheet.php?*"
   ],
-  "update_url": "https://github.com/bitwalker/NerderyTimesheetHelper/raw/master/updates.xml"
+  "update_url": "https://github.com/SgtPooki/NerderyTimesheetHelper/raw/master/updates.xml"
 }
