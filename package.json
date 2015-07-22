@@ -1,0 +1,28 @@
+{
+  "name": "NerderyTimesheetHelper",
+  "version": "1.0.0",
+  "description": "This is the Nerdery Timesheet Helper Chrome Extension, originally developed by Russell Dempsey. His fine work is available here for any and all Nerdery employees to contribute to.",
+  "main": "background.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SgtPooki/NerderyTimesheetHelper.git"
+  },
+  "author": "Russell Dempsey <SgtPooki@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/SgtPooki/NerderyTimesheetHelper/issues"
+  },
+  "homepage": "https://github.com/SgtPooki/NerderyTimesheetHelper",
+  "devDependencies": {
+    "crx": "^3.0.2",
+    "eslint": "^0.24.1",
+    "eslint-plugin-require-jsdoc": "^1.0.4",
+    "glob": "^5.0.14",
+    "gulp": "^3.9.0",
+    "istanbul": "^0.3.17",
+    "lodash": "^3.10.0"
+  }
+}
