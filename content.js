@@ -1,3 +1,4 @@
+/* global moment */
 (function($, root, undefined) {
 
     // Delay the execution of a function by a set time
