@@ -54,6 +54,9 @@ Session.vim
 Thumbs.db
 ehthumbs.db
 
+### Mac ###
+.DS_Store
+
 # Folder config file
 Desktop.ini
 
