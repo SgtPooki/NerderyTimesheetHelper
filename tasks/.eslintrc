@@ -1,0 +1,18 @@
+{
+    "env": {
+        "amd": false,
+        "browser": false,
+        "es6": false,
+        "jasmine": false,
+        "jquery": false,
+        "meteor": false,
+        "mocha": false,
+        "node": true,
+        "prototypejs": false,
+        "shelljs": false
+    },
+    "rules": {
+        "strict": [0, "function"],
+        "no-console": 0
+    }
+}
